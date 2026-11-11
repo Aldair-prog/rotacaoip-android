@@ -315,7 +315,7 @@ private fun TelaPrincipal(act: MainActivity, onSair: () -> Unit) {
             cor = if (e.rodando) Color(0xFFDC3246) else Color(0xFF28B464),
             altura = 64,
         ) {
-            if (e.rodando) Engine.parar() else {
+            if (e.rodando) Engine.desconectar() else {
                 val m = minutosTxt.toIntOrNull()
                 if (m == null || m !in 1..1440) {
                     Engine.registrar(T_ERRO, "—", "", "Digite um intervalo entre 1 e 1440 minutos.")

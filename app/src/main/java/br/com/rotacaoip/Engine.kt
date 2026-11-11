@@ -122,7 +122,7 @@ object Engine {
         rotacao = null
         Prefs.rodando = false
         estado.update { it.copy(rodando = false, status = "parado", proxima = 0) }
-        info("Rotação desligada. A VPN segue conectada.")
+        info("Rotação desligada.")
         RotationService.parar(ctx)
     }
 
