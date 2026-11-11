@@ -2,6 +2,7 @@ package br.com.rotacaoip
 
 import android.content.Context
 import android.content.SharedPreferences
+import kotlinx.coroutines.flow.MutableStateFlow
 
 /** Configuracoes salvas no aparelho (privadas do app). */
 object Prefs {
@@ -9,7 +10,13 @@ object Prefs {
 
     fun init(c: Context) {
         sp = c.getSharedPreferences("rotacaoip", Context.MODE_PRIVATE)
+        autoFlow.value = ligarAoAbrir
+        soRotacaoFlow.value = soComRotacao
     }
+
+    /** Para a tela atualizar quando o atalho/bloco rapido muda a opcao. */
+    val autoFlow = MutableStateFlow(true)
+    val soRotacaoFlow = MutableStateFlow(false)
 
     var conta: String
         get() = sp.getString("conta", "") ?: ""
@@ -30,7 +37,18 @@ object Prefs {
 
     var ligarAoAbrir: Boolean
         get() = sp.getBoolean("auto", true)
-        set(v) = sp.edit().putBoolean("auto", v).apply()
+        set(v) {
+            sp.edit().putBoolean("auto", v).apply()
+            autoFlow.value = v
+        }
+
+    /** "Internet so com a rotacao ligada" (o bloqueio em si fica nas configuracoes de VPN do Android). */
+    var soComRotacao: Boolean
+        get() = sp.getBoolean("sorot", false)
+        set(v) {
+            sp.edit().putBoolean("sorot", v).apply()
+            soRotacaoFlow.value = v
+        }
 
     /** Se a rotacao estava ligada (para retomar se o sistema reiniciar o app). */
     var rodando: Boolean
@@ -53,8 +71,10 @@ object Prefs {
     fun sair() {
         val min = minutos
         val auto = ligarAoAbrir
+        val so = soComRotacao
         sp.edit().clear().commit()
         minutos = min
         ligarAoAbrir = auto
+        soComRotacao = so
     }
 }

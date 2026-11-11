@@ -139,6 +139,32 @@ object Engine {
         }
     }
 
+    /** Desativa por completo (igual ao parar-rotacao do Windows): rotacao, VPN e "Ligar ao abrir". */
+    fun desativarTudo() {
+        Prefs.ligarAoAbrir = false
+        desconectar()
+        info("Desativado por completo: rotação, VPN e \"Ligar ao abrir\" desligados.")
+        if (Prefs.soComRotacao) {
+            erro("\"Internet só com a rotação\" está ativo: sem rotação o celular fica sem internet. " +
+                "Para liberar, desmarque a opção no app.")
+        }
+    }
+
+    /** Vigia da VPN: true se o tunel caiu ou parou de responder (sem handshake WireGuard ha > 200 s). */
+    private fun vpnCaiu(): Boolean = try {
+        if (backend.getState(tunel) != Tunnel.State.UP) true else {
+            val st = backend.getStatistics(tunel)
+            var ultimo = 0L
+            for (k in st.peers()) {
+                val p = st.peer(k)
+                if (p != null && p.latestHandshakeEpochMillis() > ultimo) ultimo = p.latestHandshakeEpochMillis()
+            }
+            ultimo > 0 && System.currentTimeMillis() - ultimo > 200_000L
+        }
+    } catch (_: Exception) {
+        false
+    }
+
     /** Envolve o loop: qualquer erro inesperado reinicia a rotacao em 5 s, nunca derruba o app. */
     private suspend fun protegerLoop() {
         while (true) {
@@ -268,7 +294,17 @@ object Engine {
             val min = Prefs.minutos.coerceIn(1, 1440)
             estado.update { it.copy(status = "rodando", proxima = System.currentTimeMillis() + min * 60_000L) }
             iniciarTeste()
-            delay(min * 60_000L)
+            // Espera ate a proxima troca vigiando a VPN a cada 15 s: se cair, reconecta na hora.
+            val fim = System.currentTimeMillis() + min * 60_000L
+            while (System.currentTimeMillis() < fim) {
+                delay(minOf(15_000L, maxOf(1L, fim - System.currentTimeMillis())))
+                if (vpnCaiu()) {
+                    teste?.cancel()
+                    estado.update { it.copy(vpnLigada = false, status = "erro", proxima = 0) }
+                    erro("A VPN caiu! Reconectando agora.")
+                    break
+                }
+            }
         }
     }
 

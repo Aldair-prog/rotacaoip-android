@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Rotação de IP</string>
+    <string name="atalho_desativar">Desativar tudo</string>
+    <string name="atalho_desativar_longo">Desativar rotação e VPN</string>
 </resources>

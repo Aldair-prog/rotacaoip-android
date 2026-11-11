@@ -35,7 +35,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Switch
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -99,6 +101,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         if (Build.VERSION.SDK_INT >= 33) pedirNotificacao.launch(Manifest.permission.POST_NOTIFICATIONS)
 
+        val desativar = intent?.action == ACAO_DESATIVAR
+        if (desativar) Engine.desativarTudo()
+
         setContent {
             var logado by remember { mutableStateOf(Prefs.logado) }
             Box(Modifier.fillMaxSize().background(Fundo).safeDrawingPadding()) {
@@ -106,7 +111,16 @@ class MainActivity : ComponentActivity() {
                 else TelaLogin(onEntrou = { logado = true; ligarSeAutomatico() })
             }
         }
-        ligarSeAutomatico()
+        if (!desativar) ligarSeAutomatico()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (intent.action == ACAO_DESATIVAR) Engine.desativarTudo()
+    }
+
+    companion object {
+        const val ACAO_DESATIVAR = "br.com.rotacaoip.DESATIVAR"
     }
 
     private fun ligarSeAutomatico() {
@@ -249,7 +263,9 @@ private fun TelaPrincipal(act: MainActivity, onSair: () -> Unit) {
         while (true) { value = System.currentTimeMillis(); delay(1000) }
     }
     var minutosTxt by remember { mutableStateOf(Prefs.minutos.toString()) }
-    var auto by remember { mutableStateOf(Prefs.ligarAoAbrir) }
+    val auto by Prefs.autoFlow.collectAsState()
+    val soRotacao by Prefs.soRotacaoFlow.collectAsState()
+    var dialogoSoRotacao by remember { mutableStateOf<Boolean?>(null) } // true = ligando, false = desligando
 
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -343,11 +359,60 @@ private fun TelaPrincipal(act: MainActivity, onSair: () -> Unit) {
             Spacer(Modifier.width(6.dp))
             Switch(
                 checked = auto,
-                onCheckedChange = { auto = it; Prefs.ligarAoAbrir = it },
+                onCheckedChange = { Prefs.ligarAoAbrir = it },
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = Color.White, checkedTrackColor = Acento,
                     uncheckedThumbColor = Muted, uncheckedTrackColor = Card2, uncheckedBorderColor = Borda,
                 ),
+            )
+        }
+
+        // ---------------- internet so com a rotacao ligada (bloqueio = VPN sempre ativa do Android)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Internet só com a rotação ligada", color = Texto, fontSize = 14.sp)
+                Text("sem rotação = sem internet (Wi-Fi e dados)", color = Muted, fontSize = 11.sp)
+            }
+            Switch(
+                checked = soRotacao,
+                onCheckedChange = { Prefs.soComRotacao = it; dialogoSoRotacao = it },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.White, checkedTrackColor = Acento,
+                    uncheckedThumbColor = Muted, uncheckedTrackColor = Card2, uncheckedBorderColor = Borda,
+                ),
+            )
+        }
+        dialogoSoRotacao?.let { ligando ->
+            AlertDialog(
+                onDismissRequest = { dialogoSoRotacao = null },
+                containerColor = Card,
+                title = {
+                    Text(if (ligando) "Ligar o bloqueio" else "Desligar o bloqueio", color = Texto,
+                        fontWeight = FontWeight.Bold)
+                },
+                text = {
+                    Text(
+                        if (ligando) {
+                            "O Android só deixa ligar isso pelas configurações.\n\n" +
+                                "Na próxima tela, toque na engrenagem ⚙ ao lado de \"Rotação de IP\" e LIGUE:\n" +
+                                "• VPN sempre ativa\n• Bloquear conexões sem VPN\n\n" +
+                                "Depois disso, sem a rotação ligada o celular fica sem internet."
+                        } else {
+                            "Para a internet voltar a funcionar sem a rotação:\n\n" +
+                                "Na próxima tela, toque na engrenagem ⚙ ao lado de \"Rotação de IP\" e DESLIGUE:\n" +
+                                "• Bloquear conexões sem VPN\n• VPN sempre ativa"
+                        },
+                        color = Muted, fontSize = 14.sp,
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = { dialogoSoRotacao = null; act.abrirVpnSempreAtiva() }) {
+                        Text("Abrir configurações", color = Acento, fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { dialogoSoRotacao = null }) { Text("Depois", color = Muted) }
+                },
             )
         }
 
@@ -357,14 +422,13 @@ private fun TelaPrincipal(act: MainActivity, onSair: () -> Unit) {
         // ---------------- protecao
         CardBox {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Rotulo("🛡  PROTEÇÃO MÁXIMA (faça uma vez)")
+                Rotulo("🛡  DEIXAR O APP SEMPRE VIVO (faça uma vez)")
                 Text(
-                    "1) VPN sempre ativa: escolha \"Rotação de IP\", ligue \"VPN sempre ativa\" e " +
-                        "\"Bloquear conexões sem VPN\". Assim o IP real nunca vaza e o app liga sozinho com o celular.",
+                    "Desativar tudo: segure o ícone do app → \"Desativar tudo\", ou adicione o bloco " +
+                        "\"Rotação de IP\" nos atalhos rápidos (puxe a barra de cima → lápis ✎).",
                     color = Muted, fontSize = 12.sp,
                 )
-                BotaoPequeno("Abrir configurações de VPN") { act.abrirVpnSempreAtiva() }
-                Text("2) HyperOS: bateria \"Sem restrições\" e \"Início automático\" ligado.", color = Muted, fontSize = 12.sp)
+                Text("HyperOS: bateria \"Sem restrições\" e \"Início automático\" ligado.", color = Muted, fontSize = 12.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Box(Modifier.weight(1f)) { BotaoPequeno("Bateria") { act.pedirBateriaSemRestricao() } }
                     Box(Modifier.weight(1f)) { BotaoPequeno("Início automático") { act.abrirInicioAutomatico() } }
