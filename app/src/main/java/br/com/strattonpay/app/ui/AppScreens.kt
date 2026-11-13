@@ -419,7 +419,8 @@ fun FirstSetupScreen(store: CredentialStore, onDone: () -> Unit) {
 // Configurações
 // =====================================================================
 
-private val intervals = listOf(2, 5, 15, 30)
+/** Intervalos em segundos: 5 s liga o monitor em tempo real. */
+private val intervals = listOf(5 to "5 s", 60 to "1 min", 300 to "5 min", 900 to "15 min")
 
 @Composable
 fun SettingsScreen(store: CredentialStore, panel: PanelController, onBack: () -> Unit) {
@@ -438,7 +439,7 @@ fun SettingsScreen(store: CredentialStore, panel: PanelController, onBack: () ->
     var sales by remember { mutableStateOf(settings.notifySales) }
     var withdraws by remember { mutableStateOf(settings.notifyWithdraws) }
     var disputes by remember { mutableStateOf(settings.notifyDisputes) }
-    var interval by remember { mutableIntStateOf(settings.intervalMinutes) }
+    var interval by remember { mutableIntStateOf(settings.intervalSeconds) }
     var blocked by remember { mutableStateOf(false) }
 
     val startNotifications = rememberNotificationStarter(
@@ -549,18 +550,28 @@ fun SettingsScreen(store: CredentialStore, panel: PanelController, onBack: () ->
                             HorizontalDivider(color = Outline)
                             Text("Checar a cada", color = Muted, style = MaterialTheme.typography.labelLarge)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                intervals.forEach { m ->
+                                intervals.forEach { (seconds, label) ->
                                     FilterChip(
-                                        selected = interval == m,
+                                        selected = interval == seconds,
                                         onClick = {
-                                            interval = m
-                                            settings.intervalMinutes = m
+                                            interval = seconds
+                                            settings.intervalSeconds = seconds
                                             NotifyScheduler.restart(context)
                                         },
-                                        label = { Text("$m min") },
+                                        label = { Text(label) },
                                     )
                                 }
                             }
+                            Text(
+                                if (interval < 60) {
+                                    "Tempo real: o Pix aparece em até 5 segundos. Fica um aviso fixo \"Monitorando pagamentos\" " +
+                                        "e gasta um pouco mais de bateria. No Xiaomi, deixe o Stratton sem restrição de bateria."
+                                } else {
+                                    "Modo econômico: gasta menos bateria, mas o aviso pode demorar até o intervalo escolhido."
+                                },
+                                color = Muted,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
                             OutlinedButton(onClick = { Notifier.test(context) }, modifier = Modifier.fillMaxWidth()) {
                                 Text("Enviar notificação de teste")
                             }

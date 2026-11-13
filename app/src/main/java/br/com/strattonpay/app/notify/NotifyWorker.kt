@@ -16,36 +16,22 @@ import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 /**
- * Checa a StrattonPay em segundo plano e avisa o que mudou:
+ * Compara o estado atual da StrattonPay com o que já foi avisado e dispara as notificações:
  * vendas pagas, saques pagos/recusados e contestações.
- * Cada execução agenda a próxima (intervalo escolhido nas Configurações).
+ * Usado tanto pelo monitor em tempo real (5 s) quanto pela checagem por minutos.
  */
-class NotifyWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+object NotifyChecker {
 
-    override suspend fun doWork(): Result {
-        val ctx = applicationContext
-        val settings = AppSettings(ctx)
-        if (!settings.notifyEnabled) return Result.success()
-
+    fun api(ctx: Context): StrattonApi? {
         val creds = try {
             CredentialStore(ctx).load()
         } catch (e: Exception) {
             null
-        } ?: return Result.success() // saiu da conta: para de checar
-
-        try {
-            check(ctx, StrattonApi(creds.baseUrl, creds.clientId, creds.clientSecret), settings)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            // sem internet ou API fora: tenta de novo na próxima rodada
-        } finally {
-            NotifyScheduler.next(ctx, settings.intervalMinutes)
-        }
-        return Result.success()
+        } ?: return null
+        return StrattonApi(creds.baseUrl, creds.clientId, creds.clientSecret)
     }
 
-    private suspend fun check(ctx: Context, api: StrattonApi, settings: AppSettings) {
+    suspend fun check(ctx: Context, api: StrattonApi, settings: AppSettings, includeDisputes: Boolean = true) {
         val firstRun = !settings.initialized
 
         if (settings.notifySales) runSafely {
@@ -79,7 +65,7 @@ class NotifyWorker(context: Context, params: WorkerParameters) : CoroutineWorker
                 .toSet()
         }
 
-        if (settings.notifyDisputes) runSafely {
+        if (settings.notifyDisputes && includeDisputes) runSafely {
             val seen = settings.seenDisputes
             val found = listOf("IN_PROTEST", "PRE_CHARGEBACK", "CHARGEBACK").flatMap { status ->
                 api.transactions(cursor = null, status = status, perPage = 10).items
@@ -111,6 +97,29 @@ class NotifyWorker(context: Context, params: WorkerParameters) : CoroutineWorker
     }
 }
 
+/** Checagem econômica (a cada X minutos), feita pelo WorkManager. */
+class NotifyWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+
+    override suspend fun doWork(): Result {
+        val ctx = applicationContext
+        val settings = AppSettings(ctx)
+        if (!settings.notifyEnabled) return Result.success()
+        val api = NotifyChecker.api(ctx) ?: return Result.success() // sem chave: para de checar
+
+        try {
+            NotifyChecker.check(ctx, api, settings)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // sem internet ou API fora: tenta de novo na próxima rodada
+        } finally {
+            NotifyScheduler.next(ctx, if (settings.isRealtime) 1 else settings.intervalSeconds / 60)
+        }
+        return Result.success()
+    }
+}
+
+/** Liga, desliga e escolhe o modo das notificações. */
 object NotifyScheduler {
     private const val WORK_NAME = "stratton_notify"
 
@@ -120,21 +129,41 @@ object NotifyScheduler {
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .build()
 
-    /** Liga (ou reinicia) as checagens. A primeira roda na hora só para marcar o ponto de partida. */
+    /** Liga (ou reinicia) no modo escolhido. A primeira rodada só marca o ponto de partida. */
     fun restart(context: Context) {
-        WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.REPLACE, request(0))
+        val settings = AppSettings(context)
+        if (settings.isRealtime) {
+            WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
+            RealtimeService.start(context)
+        } else {
+            RealtimeService.stop(context)
+            WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.REPLACE, request(0))
+        }
     }
 
-    /** Garante que está rodando, sem reiniciar se já estiver agendado. */
+    /** Garante que está rodando (ao abrir o app ou ligar o celular), sem reiniciar à toa. */
     fun ensure(context: Context) {
-        WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.KEEP, request(0))
+        val settings = AppSettings(context)
+        if (settings.isRealtime) {
+            WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
+            RealtimeService.start(context)
+        } else {
+            WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.KEEP, request(0))
+        }
+    }
+
+    /** Plano B quando o monitor de 5 s não pode iniciar em segundo plano. */
+    fun fallbackToMinutes(context: Context) {
+        WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.KEEP, request(1))
     }
 
     fun next(context: Context, minutes: Int) {
-        WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.APPEND_OR_REPLACE, request(minutes))
+        WorkManager.getInstance(context)
+            .enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.APPEND_OR_REPLACE, request(minutes.coerceAtLeast(1)))
     }
 
     fun stop(context: Context) {
         WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
+        RealtimeService.stop(context)
     }
 }

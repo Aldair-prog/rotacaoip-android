@@ -23,9 +23,12 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean("notify_disputes", true)
         set(v) = prefs.edit().putBoolean("notify_disputes", v).apply()
 
-    var intervalMinutes: Int
-        get() = prefs.getInt("interval_minutes", 5)
-        set(v) = prefs.edit().putInt("interval_minutes", v).apply()
+    /** Intervalo das checagens. 5 s = tempo real (monitor ligado); 60 s ou mais = checagem econômica. */
+    var intervalSeconds: Int
+        get() = prefs.getInt("interval_seconds", 5)
+        set(v) = prefs.edit().putInt("interval_seconds", v).apply()
+
+    val isRealtime: Boolean get() = intervalSeconds < 60
 
     /** A configuração inicial já foi mostrada (some ao limpar os dados ou reinstalar). */
     var setupDone: Boolean
