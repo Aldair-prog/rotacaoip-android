@@ -37,6 +37,15 @@ cat "$OUT/04-login-preenchimento.json"
 sleep 1
 shot 04-login-preenchido
 
+echo "== Testando o login em 2 etapas (e-mail -> Continuar)"
+python3 .github/scripts/devtools.py continuar > "$OUT/04b-login-continuar.json" 2>&1
+sleep 6
+shot 04b-login-etapa-2
+python3 .github/scripts/devtools.py inspecionar > "$OUT/04c-login-etapa-2-inspecao.json" 2>&1
+cat "$OUT/04b-login-continuar.json" "$OUT/04c-login-etapa-2-inspecao.json"
+adb shell input keyevent 4
+sleep 3
+
 echo "== Abrindo Configurações"
 python3 .github/scripts/tocar.py "Configurações" | tee "$OUT/05-toque.txt"
 sleep 2

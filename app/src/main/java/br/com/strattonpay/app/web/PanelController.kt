@@ -68,15 +68,31 @@ class PanelController(
     fun hasSavedLogin(): Boolean =
         store.savePanelLogin && !store.panelUser.isNullOrBlank() && !store.panelPass.isNullOrBlank()
 
-    /** Preenche usuário e senha salvos e envia o login. */
+    /** Até quando o app continua o login automático na etapa da senha (login em 2 etapas). */
+    private var pendingPasswordStepUntil = 0L
+
+    /** E-mail digitado na 1ª etapa do login, para salvar junto com a senha da 2ª etapa. */
+    @Volatile
+    private var typedEmail: String? = null
+
+    /**
+     * Preenche e envia o login salvo. O login da Stratton tem 2 etapas
+     * (e-mail → Continuar → senha): se estiver na etapa do e-mail, o app
+     * continua sozinho quando a tela da senha aparecer.
+     */
     fun submitSavedLogin() {
         val user = store.panelUser ?: return
         val pass = store.panelPass ?: return
         if (!isAllowedHost(Uri.parse(currentUrl).host)) return
         webView.evaluateJavascript(
-            "window.__strattonLogin && window.__strattonLogin(${JSONObject.quote(user)}, ${JSONObject.quote(pass)}, true);",
-            null,
-        )
+            "window.__strattonLogin ? window.__strattonLogin(${JSONObject.quote(user)}, ${JSONObject.quote(pass)}, true) : 'sem-ajudante';",
+        ) { result ->
+            pendingPasswordStepUntil = if (result?.contains("email") == true) {
+                android.os.SystemClock.elapsedRealtime() + 30_000
+            } else {
+                0L
+            }
+        }
     }
 
     @Volatile
@@ -85,7 +101,7 @@ class PanelController(
 
     @SuppressLint("SetJavaScriptEnabled")
     val webView: WebView = WebView(activity).apply {
-        setBackgroundColor(android.graphics.Color.parseColor("#0D0718"))
+        setBackgroundColor(android.graphics.Color.parseColor("#0B0E12"))
         settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -208,11 +224,18 @@ class PanelController(
     /** Ponte JS → app. Só aceita chamadas quando a página aberta é do domínio da Stratton. */
     private inner class Bridge {
         @JavascriptInterface
-        fun onLogin(user: String?, pass: String?) {
+        fun onEmail(email: String?) {
             if (!isAllowedHost(Uri.parse(currentUrl).host)) return
+            if (!email.isNullOrBlank()) typedEmail = email.trim()
+        }
+
+        @JavascriptInterface
+        fun onLogin(userFromPage: String?, pass: String?) {
+            if (!isAllowedHost(Uri.parse(currentUrl).host)) return
+            val user = userFromPage?.takeIf { it.isNotBlank() } ?: typedEmail ?: store.panelUser
             if (user.isNullOrBlank() || pass.isNullOrBlank()) return
             if (!store.savePanelLogin) return
-            val changed = store.panelUser != user || store.panelPass != pass
+            val changed = store.panelUser != user.trim() || store.panelPass != pass
             if (changed) {
                 store.setPanelLogin(user.trim(), pass)
                 activity.runOnUiThread {
@@ -222,15 +245,23 @@ class PanelController(
         }
 
         @JavascriptInterface
-        fun onPageState(hasPasswordField: Boolean, path: String?) {
+        fun onPageState(hasPasswordField: Boolean, hasEmailField: Boolean, path: String?) {
             if (!isAllowedHost(Uri.parse(currentUrl).host)) return
             val p = path?.lowercase().orEmpty()
-            val looksLikeAuth = listOf("login", "signin", "sign-in", "entrar", "auth", "register", "cadastro", "recuperar", "forgot")
+            val looksLikeAuth = listOf("login", "signin", "sign-in", "entrar", "auth")
                 .any { p.contains(it) }
-            val logged = !hasPasswordField && !looksLikeAuth
+            val isSignUpOrRecovery = listOf("sign-up", "signup", "register", "cadastro", "recuperar", "forgot", "reset")
+                .any { p.contains(it) }
+            val loginForm = !isSignUpOrRecovery && (hasPasswordField || (hasEmailField && looksLikeAuth))
+            val logged = !hasPasswordField && !looksLikeAuth && !isSignUpOrRecovery
             activity.runOnUiThread {
                 loggedInView = logged
-                loginFormVisible = hasPasswordField
+                loginFormVisible = loginForm
+                // 2ª etapa do login automático: a tela da senha apareceu.
+                if (hasPasswordField && android.os.SystemClock.elapsedRealtime() < pendingPasswordStepUntil) {
+                    pendingPasswordStepUntil = 0L
+                    submitSavedLogin()
+                }
             }
         }
 
@@ -288,80 +319,101 @@ private val LOGIN_SCRIPT = """
 (function(){
   var saved = __SAVED__;
   window.__strattonSaved = saved;
-  if (window.__strattonLoginHelper) { if (window.__strattonFill) window.__strattonFill(); return; }
-  window.__strattonLoginHelper = true;
+  if (window.__strattonLoginHelper) { if (window.__strattonCheck) window.__strattonCheck(); return; }
+  if (!document.documentElement || !document.body) return; // página ainda montando: o app injeta de novo depois
 
+  function visible(el){ return !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length)); }
+  function first(sel){ var l = document.querySelectorAll(sel); for (var i = 0; i < l.length; i++) if (visible(l[i])) return l[i]; return null; }
   function setVal(el, v){
     try {
-      var proto = Object.getPrototypeOf(el);
-      var desc = Object.getOwnPropertyDescriptor(proto, 'value');
+      var desc = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value');
       if (desc && desc.set) desc.set.call(el, v); else el.value = v;
     } catch(e) { el.value = v; }
     el.dispatchEvent(new Event('input', {bubbles:true}));
     el.dispatchEvent(new Event('change', {bubbles:true}));
   }
   function fields(){
-    var p = document.querySelector('input[type=password]');
-    if (!p) return null;
-    var root = p.form || document;
-    var u = root.querySelector('input[type=email]')
-      || root.querySelector('input[autocomplete=username]')
-      || root.querySelector('input[name*=mail i], input[id*=mail i], input[name*=user i], input[id*=user i], input[name*=login i]')
-      || root.querySelector('input[type=text]');
+    var p = first('input[type=password]');
+    var u = first('input[type=email], input[autocomplete=username], input[autocomplete=email], input[name*=mail i], input[id*=mail i]');
+    if (!p && !u) return null;
     return {u:u, p:p};
   }
-  function fill(){
-    var s = window.__strattonSaved;
-    var f = fields();
-    if (!f || !s || f.p.getAttribute('data-stratton-filled')) return;
-    if (f.u && !f.u.value) setVal(f.u, s.u);
-    if (!f.p.value) setVal(f.p, s.p);
-    f.p.setAttribute('data-stratton-filled', '1');
+  // Botão principal do login ("Continuar"/"Entrar"), nunca "Crie uma conta", Google ou Apple.
+  function mainButton(){
+    var bad = /google|apple|crie|criar|cadastr|esqueci|forgot|conta/i;
+    var good = /^\s*(continuar|entrar|acessar|login|sign in|avan)/i;
+    var l = document.querySelectorAll('button, input[type=submit]');
+    for (var i = 0; i < l.length; i++) {
+      var t = (l[i].textContent || l[i].value || '');
+      if (visible(l[i]) && good.test(t) && !bad.test(t)) return l[i];
+    }
+    return null;
   }
+
+  // Sem digital no celular: só preenche (não envia).
+  function fill(){
+    var s = window.__strattonSaved, f = fields();
+    if (!f || !s) return;
+    if (f.u && !f.u.value && !f.u.getAttribute('data-stratton')) { setVal(f.u, s.u); f.u.setAttribute('data-stratton', '1'); }
+    if (f.p && !f.p.value && !f.p.getAttribute('data-stratton')) { setVal(f.p, s.p); f.p.setAttribute('data-stratton', '1'); }
+  }
+
+  var lastState = null;
+  function report(){
+    var f = fields();
+    var hasP = !!(f && f.p), hasE = !!(f && f.u);
+    var st = hasP + '|' + hasE + '|' + location.pathname;
+    if (st !== lastState) {
+      lastState = st;
+      try { StrattonBridge.onPageState(hasP, hasE, location.pathname); } catch(e){}
+    }
+  }
+
+  // Guarda o que a pessoa digitou ao tocar em Continuar/Entrar.
   function capture(){
     var f = fields();
     if (!f) return;
-    var u = f.u ? f.u.value : '';
-    var p = f.p.value;
-    if (u && p) { try { StrattonBridge.onLogin(u, p); } catch(e){} }
+    try {
+      if (f.u && f.u.value) StrattonBridge.onEmail(f.u.value);
+      if (f.p && f.p.value) StrattonBridge.onLogin(f.u ? f.u.value : '', f.p.value);
+    } catch(e){}
   }
-  var lastState = null;
-  function report(){
-    var has = !!document.querySelector('input[type=password]');
-    var st = has + '|' + location.pathname;
-    if (st !== lastState) { lastState = st; try { StrattonBridge.onPageState(has, location.pathname); } catch(e){} }
-  }
-  window.__strattonFill = function(){ fill(); report(); };
-
-  // Chamado pelo app depois da digital: preenche e envia o login.
-  window.__strattonLogin = function(u, pw, submit){
-    var f = fields();
-    if (!f) return 'sem-formulario';
-    if (f.u) setVal(f.u, u);
-    setVal(f.p, pw);
-    if (submit) {
-      setTimeout(function(){
-        var root = f.p.form || document;
-        var btn = root.querySelector('button[type=submit], input[type=submit]');
-        if (!btn) {
-          var all = root.querySelectorAll('button');
-          for (var i = 0; i < all.length; i++) {
-            if (/entrar|login|acessar|continuar|sign in/i.test(all[i].textContent || '')) { btn = all[i]; break; }
-          }
-        }
-        if (btn) btn.click();
-        else if (f.p.form && f.p.form.requestSubmit) f.p.form.requestSubmit();
-      }, 350);
-    }
-    return 'ok';
-  };
   document.addEventListener('submit', capture, true);
   document.addEventListener('click', function(e){
     var b = e.target && e.target.closest ? e.target.closest('button, input[type=submit]') : null;
-    if (b && fields()) capture();
+    if (b && b === mainButton()) capture();
   }, true);
-  document.addEventListener('keydown', function(e){ if (e.key === 'Enter' && fields()) capture(); }, true);
-  new MutationObserver(function(){ fill(); report(); }).observe(document.documentElement, {childList:true, subtree:true});
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Enter' && e.target && e.target.tagName === 'INPUT') capture();
+  }, true);
+
+  // Chamado pelo app depois da digital: preenche a etapa atual e toca em Continuar/Entrar.
+  window.__strattonLogin = function(u, pw, submit){
+    var f = fields();
+    if (!f) return 'sem-formulario';
+    if (f.u && u && f.u.value !== u) setVal(f.u, u);
+    if (f.p) setVal(f.p, pw);
+    if (submit) {
+      setTimeout(function(){
+        var b = mainButton();
+        if (b) { b.click(); return; }
+        var form = (f.p || f.u).form;
+        if (form && form.requestSubmit) form.requestSubmit();
+      }, 350);
+    }
+    return f.p ? 'senha' : 'email';
+  };
+
+  var pending = false;
+  window.__strattonCheck = function(){
+    if (pending) return;
+    pending = true;
+    setTimeout(function(){ pending = false; fill(); report(); }, 150);
+  };
+  try {
+    new MutationObserver(window.__strattonCheck).observe(document.documentElement, {childList:true, subtree:true});
+  } catch(e) {}
+  window.__strattonLoginHelper = true;
   fill();
   report();
 })();

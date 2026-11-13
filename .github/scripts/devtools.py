@@ -72,5 +72,12 @@ FILL = r"""
 })()
 """
 
-out = ev(INSPECT if MODE == "inspecionar" else FILL)
+CONTINUE = r"""
+(function(){
+  if (!window.__strattonLogin) return 'função de login ausente';
+  return window.__strattonLogin('teste.stratton.app@exemplo.com', 'SenhaDeTeste123', true);
+})()
+"""
+
+out = ev({"inspecionar": INSPECT, "preencher": FILL, "continuar": CONTINUE}[MODE])
 print(json.dumps(out, indent=2, ensure_ascii=False))
