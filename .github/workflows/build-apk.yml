@@ -54,6 +54,18 @@ jobs:
           name: stratton-apk
           path: saida/
 
+      - name: Publicar para download (temporário, sem a chave fixa)
+        if: steps.key.outputs.signed != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: stratton-build-${{ github.run_number }}
+          name: Stratton (build ${{ github.run_number }}, temporário)
+          target_commitish: ${{ github.sha }}
+          prerelease: true
+          make_latest: false
+          body: APK temporário (sem a chave fixa). Para instalar, desinstale a versão anterior.
+          files: saida/Stratton.apk
+
       - name: Publicar para download
         if: steps.key.outputs.signed == 'true'
         uses: softprops/action-gh-release@v2
