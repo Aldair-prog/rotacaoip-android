@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ícone provisório: "S" dourado num anel. Troque pela logo oficial quando tiver. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#D4AF37"
+        android:strokeWidth="2.5"
+        android:pathData="M54,25 A29,29 0 1,1 53.99,25 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#D4AF37"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M65,41 C61,35 47,34 44,42 C41,50 65,51 65,63 C65,73 47,76 42,68" />
+</vector>

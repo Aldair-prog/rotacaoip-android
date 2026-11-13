@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="stratton_bg">#FF0A0E17</color>
+    <color name="stratton_gold">#FFD4AF37</color>
+
+    <style name="Theme.Stratton" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/stratton_bg</item>
+        <item name="android:colorAccent">@color/stratton_gold</item>
+    </style>
+</resources>
