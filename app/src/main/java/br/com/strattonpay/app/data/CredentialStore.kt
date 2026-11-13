@@ -5,10 +5,9 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 
 /**
- * Guarda a chave de API criptografada no aparelho (Android Keystore).
- *
- * - "logado": o app abre direto na conta.
- * - "lembrar": ao sair, o Client ID e o Secret ficam salvos e já aparecem preenchidos no login.
+ * Tudo que é sensível fica aqui, criptografado com o Android Keystore:
+ * - usuário e senha do painel (para preencher o login sozinho);
+ * - chave de API opcional, usada só pelas notificações em segundo plano.
  */
 class CredentialStore(context: Context) {
 
@@ -22,47 +21,51 @@ class CredentialStore(context: Context) {
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
     )
 
-    private fun stored(): Creds? {
+    // ---------- Login do painel ----------
+
+    var savePanelLogin: Boolean
+        get() = prefs.getBoolean(KEY_SAVE_LOGIN, true)
+        set(v) {
+            prefs.edit().putBoolean(KEY_SAVE_LOGIN, v).apply()
+            if (!v) clearPanelLogin()
+        }
+
+    val panelUser: String? get() = prefs.getString(KEY_PANEL_USER, null)
+    val panelPass: String? get() = prefs.getString(KEY_PANEL_PASS, null)
+
+    fun setPanelLogin(user: String, pass: String) {
+        prefs.edit().putString(KEY_PANEL_USER, user).putString(KEY_PANEL_PASS, pass).apply()
+    }
+
+    fun clearPanelLogin() {
+        prefs.edit().remove(KEY_PANEL_USER).remove(KEY_PANEL_PASS).apply()
+    }
+
+    // ---------- Bloqueio com digital ----------
+
+    var lockEnabled: Boolean
+        get() = prefs.getBoolean(KEY_LOCK, true)
+        set(v) = prefs.edit().putBoolean(KEY_LOCK, v).apply()
+
+    // ---------- Chave de API (notificações) ----------
+
+    fun load(): Creds? {
         val id = prefs.getString(KEY_ID, null) ?: return null
         val secret = prefs.getString(KEY_SECRET, null) ?: return null
         val base = prefs.getString(KEY_BASE, null) ?: DEFAULT_BASE_URL
         return Creds(base, id, secret)
     }
 
-    /** Credenciais da sessão ativa, ou null se a pessoa saiu. */
-    fun load(): Creds? = if (prefs.getBoolean(KEY_LOGGED_IN, true)) stored() else null
-
-    /** Credenciais salvas para preencher o login, se "lembrar" estiver ligado. */
-    fun remembered(): Creds? = if (remember) stored() else null
-
-    var remember: Boolean
-        get() = prefs.getBoolean(KEY_REMEMBER, true)
-        set(value) {
-            prefs.edit().putBoolean(KEY_REMEMBER, value).apply()
-        }
-
-    fun save(creds: Creds, remember: Boolean) {
+    fun saveApi(creds: Creds) {
         prefs.edit()
             .putString(KEY_BASE, creds.baseUrl)
             .putString(KEY_ID, creds.clientId)
             .putString(KEY_SECRET, creds.clientSecret)
-            .putBoolean(KEY_LOGGED_IN, true)
-            .putBoolean(KEY_REMEMBER, remember)
             .apply()
     }
 
-    /** Sai da conta. Mantém os dados para o próximo login só se "lembrar" estiver ligado. */
-    fun logout() {
-        if (remember) {
-            prefs.edit().putBoolean(KEY_LOGGED_IN, false).apply()
-        } else {
-            forget()
-        }
-    }
-
-    /** Apaga tudo: sessão e dados salvos. */
-    fun forget() {
-        prefs.edit().clear().putBoolean(KEY_LOGGED_IN, false).apply()
+    fun clearApi() {
+        prefs.edit().remove(KEY_BASE).remove(KEY_ID).remove(KEY_SECRET).apply()
     }
 
     companion object {
@@ -70,7 +73,9 @@ class CredentialStore(context: Context) {
         private const val KEY_BASE = "base_url"
         private const val KEY_ID = "client_id"
         private const val KEY_SECRET = "client_secret"
-        private const val KEY_LOGGED_IN = "logged_in"
-        private const val KEY_REMEMBER = "remember"
+        private const val KEY_SAVE_LOGIN = "save_panel_login"
+        private const val KEY_PANEL_USER = "panel_user"
+        private const val KEY_PANEL_PASS = "panel_pass"
+        private const val KEY_LOCK = "lock_enabled"
     }
 }

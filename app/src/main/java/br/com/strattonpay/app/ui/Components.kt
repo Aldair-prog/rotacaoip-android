@@ -5,6 +5,7 @@ package br.com.strattonpay.app.ui
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -27,8 +28,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import br.com.strattonpay.app.R
 import br.com.strattonpay.app.data.ApiException
 import kotlinx.coroutines.CancellationException
 
@@ -91,18 +95,12 @@ fun SectionCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.
 }
 
 @Composable
-fun BrandMark(modifier: Modifier = Modifier) {
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            Modifier.size(72.dp).border(2.dp, Gold, CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("S", color = Gold, fontSize = 38.sp, fontWeight = FontWeight.Bold)
-        }
-        Spacer(Modifier.height(12.dp))
-        Text("STRATTON", color = Gold, fontSize = 26.sp, fontWeight = FontWeight.Bold, letterSpacing = 8.sp)
-        Text("PAY", color = Muted, fontSize = 12.sp, letterSpacing = 6.sp)
-    }
+fun BrandMark(modifier: Modifier = Modifier, width: Dp = 260.dp) {
+    Image(
+        painter = painterResource(R.drawable.logo_full),
+        contentDescription = "Stratton",
+        modifier = modifier.width(width),
+    )
 }
 
 @Composable
@@ -135,7 +133,7 @@ fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifi
 @Composable
 fun LoadingBox(modifier: Modifier = Modifier) {
     Box(modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(color = Gold)
+        CircularProgressIndicator(color = Brand)
     }
 }
 

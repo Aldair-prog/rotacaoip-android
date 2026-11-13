@@ -4,64 +4,79 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import br.com.strattonpay.app.data.CredentialStore
+import br.com.strattonpay.app.notify.AppSettings
 import br.com.strattonpay.app.notify.Notifier
+import br.com.strattonpay.app.notify.NotifyScheduler
 import br.com.strattonpay.app.ui.LockScreen
-import br.com.strattonpay.app.ui.StrattonApp
+import br.com.strattonpay.app.ui.PanelScreen
 import br.com.strattonpay.app.ui.StrattonTheme
+import br.com.strattonpay.app.web.PanelController
 
 class MainActivity : FragmentActivity() {
 
-    /** Rota aberta por toque em notificação (ex.: "tx/<id>"). */
-    private var pendingRoute by mutableStateOf<String?>(null)
+    private lateinit var store: CredentialStore
+    private lateinit var panel: PanelController
+    private var unlocked by mutableStateOf(false)
+
+    private val fileChooser = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        panel.onFileChosen(result.resultCode, result.data)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         Notifier.ensureChannels(this)
-        if (savedInstanceState == null) pendingRoute = intent?.getStringExtra(Notifier.EXTRA_ROUTE)
-        val store = CredentialStore(applicationContext)
+
+        store = CredentialStore(applicationContext)
+        panel = PanelController(this, store) { intent -> fileChooser.launch(intent) }
+        panel.start(savedInstanceState)
+
+        val lockAvailable = store.lockEnabled && canUseDeviceAuth()
+        unlocked = !lockAvailable || savedInstanceState?.getBoolean(KEY_UNLOCKED) == true
+
+        if (AppSettings(this).notifyEnabled && store.load() != null) NotifyScheduler.ensure(this)
 
         setContent {
             StrattonTheme {
-                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    val lockAvailable = remember { canUseDeviceAuth() }
-                    var unlocked by rememberSaveable { mutableStateOf(!lockAvailable) }
-
-                    if (!unlocked) {
-                        LockScreen(onUnlock = { authenticate("Desbloquear Stratton") { unlocked = true } })
-                    } else {
-                        StrattonApp(
-                            store = store,
-                            requireAuth = { title, onOk ->
-                                if (lockAvailable) authenticate(title, onOk) else onOk()
-                            },
-                            pendingRoute = pendingRoute,
-                            onRouteConsumed = { pendingRoute = null },
-                        )
-                    }
+                // O painel já vai carregando por trás enquanto pede a digital.
+                PanelScreen(panel = panel, store = store)
+                if (!unlocked) {
+                    LockScreen(onUnlock = { authenticate("Desbloquear Stratton") { unlocked = true } })
                 }
             }
         }
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(KEY_UNLOCKED, unlocked)
+        panel.webView.saveState(outState)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        panel.persist()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        intent.getStringExtra(Notifier.EXTRA_ROUTE)?.let { pendingRoute = it }
+        // Toque em notificação com o app aberto: traz o painel para frente atualizado.
+        if (intent.hasExtra(Notifier.EXTRA_ROUTE)) panel.reload()
+    }
+
+    override fun onDestroy() {
+        panel.webView.destroy()
+        super.onDestroy()
     }
 
     /** Digital, rosto ou a senha/PIN do próprio celular. */
@@ -87,6 +102,7 @@ class MainActivity : FragmentActivity() {
     }
 
     companion object {
+        private const val KEY_UNLOCKED = "unlocked"
         private val AUTHENTICATORS =
             BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL
     }

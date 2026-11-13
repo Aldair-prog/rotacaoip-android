@@ -5,27 +5,29 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-val Gold = Color(0xFFD4AF37)
-val GoldDark = Color(0xFFA8872A)
-val Bg = Color(0xFF0A0E17)
-val Surface1 = Color(0xFF131A27)
-val Surface2 = Color(0xFF1B2433)
-val Outline = Color(0xFF2A3445)
-val TextMain = Color(0xFFEDEFF4)
-val Muted = Color(0xFF8A93A6)
+// Paleta tirada da logo do leão (gradiente #4A0E78 → #7B2FD0)
+val Brand = Color(0xFF7B2FD0)
+val BrandLight = Color(0xFFA56BFF)
+val BrandDark = Color(0xFF4A0E78)
+val Bg = Color(0xFF0D0718)
+val Surface1 = Color(0xFF171026)
+val Surface2 = Color(0xFF221838)
+val Outline = Color(0xFF33264D)
+val TextMain = Color(0xFFF1ECFA)
+val Muted = Color(0xFF9A8FB3)
 val Success = Color(0xFF2ECC71)
 val Warning = Color(0xFFF5B83D)
 val Danger = Color(0xFFE5484D)
 
 private val StrattonColors = darkColorScheme(
-    primary = Gold,
-    onPrimary = Color(0xFF111111),
-    primaryContainer = GoldDark,
-    onPrimaryContainer = Color(0xFF111111),
-    secondary = Gold,
-    onSecondary = Color(0xFF111111),
+    primary = Brand,
+    onPrimary = Color.White,
+    primaryContainer = BrandDark,
+    onPrimaryContainer = Color.White,
+    secondary = BrandLight,
+    onSecondary = Color.White,
     secondaryContainer = Surface2,
-    onSecondaryContainer = Gold,
+    onSecondaryContainer = BrandLight,
     background = Bg,
     onBackground = TextMain,
     surface = Surface1,
