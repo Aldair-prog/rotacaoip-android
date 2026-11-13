@@ -13,11 +13,30 @@ android {
         applicationId = "br.com.strattonpay.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1.0"
+        // Versão sobe sozinha a cada build do GitHub, então o APK novo sempre instala por cima do antigo.
+        val build = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 2
+        versionCode = build
+        versionName = "1.2.$build"
+    }
+
+    // Mesma chave em todos os builds: sem isso o Android recusa instalar a atualização por cima.
+    signingConfigs {
+        // A chave vem dos segredos do GitHub (nunca fica no código).
+        val keystorePath = System.getenv("STRATTON_KEYSTORE_PATH")
+        if (keystorePath != null) {
+            create("stratton") {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("STRATTON_KEY_PASSWORD")
+                keyAlias = "stratton"
+                keyPassword = System.getenv("STRATTON_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfigs.findByName("stratton")?.let { signingConfig = it }
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
@@ -35,6 +54,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

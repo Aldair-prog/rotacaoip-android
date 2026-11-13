@@ -38,6 +38,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import br.com.strattonpay.app.BuildConfig
 import br.com.strattonpay.app.R
 import br.com.strattonpay.app.data.ApiException
 import br.com.strattonpay.app.data.CredentialStore
@@ -401,7 +402,7 @@ fun SettingsScreen(store: CredentialStore, panel: PanelController, onBack: () ->
                 }
 
                 Text(
-                    "Stratton · versão 1.1",
+                    "Stratton · versão ${BuildConfig.VERSION_NAME}",
                     color = Muted,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.fillMaxWidth(),

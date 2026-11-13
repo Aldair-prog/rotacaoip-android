@@ -21,7 +21,20 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      - name: Preparar chave de assinatura
+        env:
+          STRATTON_KEYSTORE: ${{ secrets.STRATTON_KEYSTORE }}
+        run: |
+          if [ -z "$STRATTON_KEYSTORE" ]; then
+            echo "::error::Falta o segredo STRATTON_KEYSTORE. Sem ele o APK não instala por cima da versão anterior."
+            exit 1
+          fi
+          echo "$STRATTON_KEYSTORE" | base64 -d > "$RUNNER_TEMP/stratton.keystore"
+          echo "STRATTON_KEYSTORE_PATH=$RUNNER_TEMP/stratton.keystore" >> "$GITHUB_ENV"
+
       - name: Compilar APK
+        env:
+          STRATTON_KEY_PASSWORD: ${{ secrets.STRATTON_KEY_PASSWORD }}
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace
