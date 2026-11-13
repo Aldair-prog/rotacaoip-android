@@ -53,6 +53,32 @@ class PanelController(
     /** true quando a página aberta é o painel já logado (sem campo de senha na tela). */
     var loggedInView by mutableStateOf(false)
 
+    /** true quando a tela de login do painel está aberta. */
+    var loginFormVisible by mutableStateOf(false)
+
+    /** Pedido (só em teste) para abrir a configuração inicial. */
+    var showSetupRequest by mutableStateOf(false)
+
+    /**
+     * Com digital disponível, a senha salva só vai para a página depois da digital
+     * (não fica preenchida sozinha para qualquer um que pegue o celular).
+     */
+    var biometricLogin: Boolean = false
+
+    fun hasSavedLogin(): Boolean =
+        store.savePanelLogin && !store.panelUser.isNullOrBlank() && !store.panelPass.isNullOrBlank()
+
+    /** Preenche usuário e senha salvos e envia o login. */
+    fun submitSavedLogin() {
+        val user = store.panelUser ?: return
+        val pass = store.panelPass ?: return
+        if (!isAllowedHost(Uri.parse(currentUrl).host)) return
+        webView.evaluateJavascript(
+            "window.__strattonLogin && window.__strattonLogin(${JSONObject.quote(user)}, ${JSONObject.quote(pass)}, true);",
+            null,
+        )
+    }
+
     @Volatile
     private var currentUrl: String = HOME_URL
     private var fileCallback: ValueCallback<Array<Uri>>? = null
@@ -132,6 +158,7 @@ class PanelController(
             currentUrl = url
             error = null
             loggedInView = false
+            loginFormVisible = false
         }
 
         override fun onPageFinished(view: WebView, url: String) {
@@ -201,7 +228,10 @@ class PanelController(
             val looksLikeAuth = listOf("login", "signin", "sign-in", "entrar", "auth", "register", "cadastro", "recuperar", "forgot")
                 .any { p.contains(it) }
             val logged = !hasPasswordField && !looksLikeAuth
-            activity.runOnUiThread { loggedInView = logged }
+            activity.runOnUiThread {
+                loggedInView = logged
+                loginFormVisible = hasPasswordField
+            }
         }
 
         @JavascriptInterface
@@ -231,7 +261,7 @@ class PanelController(
         if (!isAllowedHost(Uri.parse(currentUrl).host)) return
         val user = store.panelUser
         val pass = store.panelPass
-        val saved = if (store.savePanelLogin && user != null && pass != null) {
+        val saved = if (!biometricLogin && store.savePanelLogin && user != null && pass != null) {
             "{u:${JSONObject.quote(user)},p:${JSONObject.quote(pass)}}"
         } else {
             "null"
@@ -302,6 +332,29 @@ private val LOGIN_SCRIPT = """
     if (st !== lastState) { lastState = st; try { StrattonBridge.onPageState(has, location.pathname); } catch(e){} }
   }
   window.__strattonFill = function(){ fill(); report(); };
+
+  // Chamado pelo app depois da digital: preenche e envia o login.
+  window.__strattonLogin = function(u, pw, submit){
+    var f = fields();
+    if (!f) return 'sem-formulario';
+    if (f.u) setVal(f.u, u);
+    setVal(f.p, pw);
+    if (submit) {
+      setTimeout(function(){
+        var root = f.p.form || document;
+        var btn = root.querySelector('button[type=submit], input[type=submit]');
+        if (!btn) {
+          var all = root.querySelectorAll('button');
+          for (var i = 0; i < all.length; i++) {
+            if (/entrar|login|acessar|continuar|sign in/i.test(all[i].textContent || '')) { btn = all[i]; break; }
+          }
+        }
+        if (btn) btn.click();
+        else if (f.p.form && f.p.form.requestSubmit) f.p.form.requestSubmit();
+      }, 350);
+    }
+    return 'ok';
+  };
   document.addEventListener('submit', capture, true);
   document.addEventListener('click', function(e){
     var b = e.target && e.target.closest ? e.target.closest('button, input[type=submit]') : null;

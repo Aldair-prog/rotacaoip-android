@@ -10,6 +10,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -56,11 +57,42 @@ import kotlinx.coroutines.launch
 // =====================================================================
 
 @Composable
-fun PanelScreen(panel: PanelController, store: CredentialStore) {
+fun PanelScreen(
+    panel: PanelController,
+    store: CredentialStore,
+    unlocked: Boolean,
+    biometricAvailable: Boolean,
+    recentlyUnlocked: () -> Boolean,
+    authenticate: (String, () -> Unit) -> Unit,
+) {
     val context = LocalContext.current
     val appSettings = remember { AppSettings(context) }
     var showSettings by remember { mutableStateOf(false) }
     var showSetup by remember { mutableStateOf(false) }
+    var autoLoginTried by remember { mutableStateOf(false) }
+
+    // Entrar com digital: a sessão do painel caiu e há usuário/senha salvos ->
+    // pede a digital (ou aproveita o desbloqueio que acabou de acontecer) e entra sozinho.
+    val loginWithBiometric: () -> Unit = {
+        if (recentlyUnlocked()) panel.submitSavedLogin()
+        else authenticate("Entrar na Stratton") { panel.submitSavedLogin() }
+    }
+    LaunchedEffect(panel.loginFormVisible, unlocked) {
+        if (!panel.loginFormVisible) {
+            autoLoginTried = false
+        } else if (unlocked && biometricAvailable && !autoLoginTried && panel.hasSavedLogin()) {
+            autoLoginTried = true
+            delay(400)
+            loginWithBiometric()
+        }
+    }
+
+    LaunchedEffect(panel.showSetupRequest) {
+        if (panel.showSetupRequest) {
+            showSetup = true
+            panel.showSetupRequest = false
+        }
+    }
 
     // Configuração inicial: só uma vez, logo depois de entrar no painel.
     // (Volta a aparecer apenas se os dados do app forem limpos ou ele for reinstalado.)
@@ -87,8 +119,8 @@ fun PanelScreen(panel: PanelController, store: CredentialStore) {
                     .fillMaxWidth()
                     .background(Bg)
                     .statusBarsPadding()
-                    .height(52.dp)
-                    .padding(start = 14.dp, end = 4.dp),
+                    .height(54.dp)
+                    .padding(start = 16.dp, end = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Image(
@@ -97,7 +129,7 @@ fun PanelScreen(panel: PanelController, store: CredentialStore) {
                     modifier = Modifier.size(32.dp),
                 )
                 Spacer(Modifier.width(10.dp))
-                Text("STRATTON", color = TextMain, fontWeight = FontWeight.Bold, fontSize = 17.sp, letterSpacing = 3.sp)
+                Text("STRATTON", color = TextMain, fontWeight = FontWeight.Bold, fontSize = 16.sp, letterSpacing = 3.5.sp)
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = { panel.reload() }) {
                     Icon(Icons.Filled.Refresh, contentDescription = "Recarregar", tint = Muted)
@@ -114,11 +146,28 @@ fun PanelScreen(panel: PanelController, store: CredentialStore) {
                     trackColor = Bg,
                 )
             } else {
-                Spacer(Modifier.height(2.dp))
+                HorizontalDivider(thickness = 2.dp, color = Surface1)
             }
             AndroidView(
                 factory = { panel.webView },
                 modifier = Modifier.fillMaxSize().navigationBarsPadding().imePadding(),
+            )
+        }
+
+        // Botão "Entrar com digital" sobre a tela de login do painel
+        AnimatedVisibility(
+            visible = panel.loginFormVisible && biometricAvailable && panel.hasSavedLogin() && !showSettings && !showSetup,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.align(Alignment.BottomCenter),
+        ) {
+            ExtendedFloatingActionButton(
+                onClick = loginWithBiometric,
+                containerColor = Brand,
+                contentColor = Color.White,
+                icon = { Icon(Icons.Filled.Fingerprint, contentDescription = null) },
+                text = { Text("Entrar com digital", fontWeight = FontWeight.SemiBold) },
+                modifier = Modifier.navigationBarsPadding().padding(bottom = 24.dp),
             )
         }
 
@@ -181,6 +230,8 @@ fun LockScreen(onUnlock: () -> Unit) {
     ) {
         BrandMark(width = 260.dp)
         Spacer(Modifier.height(56.dp))
+        Text("Toque para desbloquear", color = Muted, style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(14.dp))
         Button(onClick = onUnlock, modifier = Modifier.height(52.dp)) {
             Icon(Icons.Filled.Fingerprint, contentDescription = null)
             Spacer(Modifier.width(8.dp))
@@ -360,7 +411,7 @@ fun FirstSetupScreen(store: CredentialStore, onDone: () -> Unit) {
             }
         }
 
-        TextButton(onClick = onDone) { Text("Fazer depois (fica na engrenagem ⚙)", color = Muted) }
+        TextButton(onClick = onDone) { Text("Fazer depois (fica na engrenagem)", color = Muted) }
     }
 }
 

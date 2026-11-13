@@ -2,7 +2,7 @@ name: Stratton - Gerar APK
 
 on:
   push:
-    branches: [stratton-app, main]
+    branches: [stratton-app]
   workflow_dispatch:
 
 permissions:
@@ -11,6 +11,8 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      signed: ${{ steps.key.outputs.signed }}
     steps:
       - uses: actions/checkout@v4
 
@@ -22,35 +24,89 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Preparar chave de assinatura
+        id: key
         env:
           STRATTON_KEYSTORE: ${{ secrets.STRATTON_KEYSTORE }}
         run: |
-          if [ -z "$STRATTON_KEYSTORE" ]; then
-            echo "::error::Falta o segredo STRATTON_KEYSTORE. Sem ele o APK não instala por cima da versão anterior."
-            exit 1
+          if [ -n "$STRATTON_KEYSTORE" ]; then
+            echo "$STRATTON_KEYSTORE" | base64 -d > "$RUNNER_TEMP/stratton.keystore"
+            echo "STRATTON_KEYSTORE_PATH=$RUNNER_TEMP/stratton.keystore" >> "$GITHUB_ENV"
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Sem o segredo STRATTON_KEYSTORE: compila e testa, mas não publica o APK."
+            echo "signed=false" >> "$GITHUB_OUTPUT"
           fi
-          echo "$STRATTON_KEYSTORE" | base64 -d > "$RUNNER_TEMP/stratton.keystore"
-          echo "STRATTON_KEYSTORE_PATH=$RUNNER_TEMP/stratton.keystore" >> "$GITHUB_ENV"
 
-      - name: Compilar APK
+      - name: Compilar (versão leve + versão de teste)
         env:
           STRATTON_KEY_PASSWORD: ${{ secrets.STRATTON_KEY_PASSWORD }}
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
-          cp app/build/outputs/apk/debug/app-debug.apk Stratton.apk
+          ./gradlew assembleRelease assembleDebug lintDebug --no-daemon --stacktrace
+          mkdir -p saida
+          cp app/build/outputs/apk/release/app-release.apk saida/Stratton.apk
+          cp app/build/outputs/apk/debug/app-debug.apk saida/Stratton-teste.apk
+          cp app/build/reports/lint-results-debug.txt saida/lint.txt 2>/dev/null || true
+          ls -la saida
 
       - uses: actions/upload-artifact@v4
         with:
           name: stratton-apk
-          path: Stratton.apk
+          path: saida/
 
       - name: Publicar para download
+        if: steps.key.outputs.signed == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: stratton-build-${{ github.run_number }}
           name: Stratton (build ${{ github.run_number }})
           target_commitish: ${{ github.sha }}
           prerelease: true
-          body: APK do app Stratton. Baixe o arquivo Stratton.apk abaixo e instale no Android.
-          files: Stratton.apk
+          make_latest: false
+          body: APK do app Stratton. Baixe o arquivo Stratton.apk abaixo e instale no Android (atualiza por cima da versão anterior).
+          files: saida/Stratton.apk
+
+  teste:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: stratton-apk
+          path: saida
+
+      - name: Ativar KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - run: pip install websocket-client
+
+      - name: Rodar o app num celular Android virtual
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: bash .github/scripts/teste-celular.sh
+
+      - name: Publicar resultado dos testes
+        if: always()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: stratton-testes
+          name: Stratton - testes automáticos
+          target_commitish: ${{ github.sha }}
+          prerelease: true
+          make_latest: false
+          body: Prints e relatórios do último teste automático do app (build ${{ github.run_number }}).
+          files: |
+            testes/*
+            saida/lint.txt
