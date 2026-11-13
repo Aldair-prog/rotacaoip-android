@@ -13,6 +13,8 @@ ls -la saida
 adb install -r -g saida/Stratton-teste.apk | tee "$OUT/instalacao.txt"
 adb shell settings put system screen_off_timeout 1800000
 adb shell svc power stayon true
+echo "== Esperando o celular virtual terminar de iniciar (Google Play Services)"
+sleep 60
 adb logcat -c
 
 echo "== Tempo de abertura (frio)"
@@ -39,7 +41,10 @@ shot 04-login-preenchido
 
 echo "== Testando o login em 2 etapas (e-mail -> Continuar)"
 python3 .github/scripts/devtools.py continuar > "$OUT/04b-login-continuar.json" 2>&1
-sleep 6
+sleep 8
+PID=$(adb shell pidof "$PKG" | tr -d '\r')
+adb forward --remove-all
+adb forward tcp:9222 "localabstract:webview_devtools_remote_$PID"
 shot 04b-login-etapa-2
 python3 .github/scripts/devtools.py inspecionar > "$OUT/04c-login-etapa-2-inspecao.json" 2>&1
 cat "$OUT/04b-login-continuar.json" "$OUT/04c-login-etapa-2-inspecao.json"
