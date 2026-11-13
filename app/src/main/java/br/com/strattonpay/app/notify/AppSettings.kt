@@ -27,6 +27,11 @@ class AppSettings(context: Context) {
         get() = prefs.getInt("interval_minutes", 5)
         set(v) = prefs.edit().putInt("interval_minutes", v).apply()
 
+    /** A configuração inicial já foi mostrada (some ao limpar os dados ou reinstalar). */
+    var setupDone: Boolean
+        get() = prefs.getBoolean("setup_done", false)
+        set(v) = prefs.edit().putBoolean("setup_done", v).apply()
+
     // ---------- Controle interno ----------
 
     var initialized: Boolean

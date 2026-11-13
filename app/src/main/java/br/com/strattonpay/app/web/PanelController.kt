@@ -50,6 +50,9 @@ class PanelController(
     var error by mutableStateOf<String?>(null)
     var canGoBack by mutableStateOf(false)
 
+    /** true quando a página aberta é o painel já logado (sem campo de senha na tela). */
+    var loggedInView by mutableStateOf(false)
+
     @Volatile
     private var currentUrl: String = HOME_URL
     private var fileCallback: ValueCallback<Array<Uri>>? = null
@@ -128,6 +131,7 @@ class PanelController(
         override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
             currentUrl = url
             error = null
+            loggedInView = false
         }
 
         override fun onPageFinished(view: WebView, url: String) {
@@ -188,6 +192,16 @@ class PanelController(
                     Toast.makeText(activity, "Usuário e senha salvos neste celular", Toast.LENGTH_SHORT).show()
                 }
             }
+        }
+
+        @JavascriptInterface
+        fun onPageState(hasPasswordField: Boolean, path: String?) {
+            if (!isAllowedHost(Uri.parse(currentUrl).host)) return
+            val p = path?.lowercase().orEmpty()
+            val looksLikeAuth = listOf("login", "signin", "sign-in", "entrar", "auth", "register", "cadastro", "recuperar", "forgot")
+                .any { p.contains(it) }
+            val logged = !hasPasswordField && !looksLikeAuth
+            activity.runOnUiThread { loggedInView = logged }
         }
 
         @JavascriptInterface
@@ -281,14 +295,21 @@ private val LOGIN_SCRIPT = """
     var p = f.p.value;
     if (u && p) { try { StrattonBridge.onLogin(u, p); } catch(e){} }
   }
-  window.__strattonFill = fill;
+  var lastState = null;
+  function report(){
+    var has = !!document.querySelector('input[type=password]');
+    var st = has + '|' + location.pathname;
+    if (st !== lastState) { lastState = st; try { StrattonBridge.onPageState(has, location.pathname); } catch(e){} }
+  }
+  window.__strattonFill = function(){ fill(); report(); };
   document.addEventListener('submit', capture, true);
   document.addEventListener('click', function(e){
     var b = e.target && e.target.closest ? e.target.closest('button, input[type=submit]') : null;
     if (b && fields()) capture();
   }, true);
   document.addEventListener('keydown', function(e){ if (e.key === 'Enter' && fields()) capture(); }, true);
-  new MutationObserver(function(){ fill(); }).observe(document.documentElement, {childList:true, subtree:true});
+  new MutationObserver(function(){ fill(); report(); }).observe(document.documentElement, {childList:true, subtree:true});
   fill();
+  report();
 })();
 """.trimIndent()

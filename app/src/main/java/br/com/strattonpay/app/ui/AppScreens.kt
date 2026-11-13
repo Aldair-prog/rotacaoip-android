@@ -48,6 +48,7 @@ import br.com.strattonpay.app.notify.Notifier
 import br.com.strattonpay.app.notify.NotifyScheduler
 import br.com.strattonpay.app.web.PanelController
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 // =====================================================================
@@ -56,7 +57,23 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun PanelScreen(panel: PanelController, store: CredentialStore) {
+    val context = LocalContext.current
+    val appSettings = remember { AppSettings(context) }
     var showSettings by remember { mutableStateOf(false) }
+    var showSetup by remember { mutableStateOf(false) }
+
+    // Configuração inicial: só uma vez, logo depois de entrar no painel.
+    // (Volta a aparecer apenas se os dados do app forem limpos ou ele for reinstalado.)
+    LaunchedEffect(panel.loggedInView) {
+        if (panel.loggedInView && !appSettings.setupDone) {
+            if (store.load() != null && appSettings.notifyEnabled) {
+                appSettings.setupDone = true
+            } else {
+                delay(2500)
+                if (panel.loggedInView) showSetup = true
+            }
+        }
+    }
 
     BackHandler(enabled = showSettings || panel.canGoBack) {
         if (showSettings) showSettings = false else panel.goBack()
@@ -129,6 +146,13 @@ fun PanelScreen(panel: PanelController, store: CredentialStore) {
         if (showSettings) {
             SettingsScreen(store = store, panel = panel, onBack = { showSettings = false })
         }
+
+        if (showSetup) {
+            FirstSetupScreen(store = store, onDone = {
+                appSettings.setupDone = true
+                showSetup = false
+            })
+        }
     }
 }
 
@@ -166,66 +190,18 @@ fun LockScreen(onUnlock: () -> Unit) {
 }
 
 // =====================================================================
-// Configurações
+// Peças reaproveitadas: formulário da chave e ligar notificações
 // =====================================================================
 
-private val intervals = listOf(2, 5, 15, 30)
-
+/** Formulário de Client ID + Secret. Valida na StrattonPay antes de salvar. */
 @Composable
-fun SettingsScreen(store: CredentialStore, panel: PanelController, onBack: () -> Unit) {
-    val context = LocalContext.current
+fun ApiKeyForm(store: CredentialStore, buttonText: String, onConnected: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val settings = remember { AppSettings(context) }
-
-    // Login salvo / bloqueio
-    var saveLogin by remember { mutableStateOf(store.savePanelLogin) }
-    var savedUser by remember { mutableStateOf(store.panelUser) }
-    var lock by remember { mutableStateOf(store.lockEnabled) }
-    var askLogout by remember { mutableStateOf(false) }
-
-    // Notificações
-    var hasKey by remember { mutableStateOf(store.load() != null) }
     var clientId by remember { mutableStateOf("") }
     var secret by remember { mutableStateOf("") }
     var showSecret by remember { mutableStateOf(false) }
     var connecting by remember { mutableStateOf(false) }
     var keyError by remember { mutableStateOf<String?>(null) }
-    var enabled by remember { mutableStateOf(settings.notifyEnabled && Notifier.canNotify(context) && hasKey) }
-    var sales by remember { mutableStateOf(settings.notifySales) }
-    var withdraws by remember { mutableStateOf(settings.notifyWithdraws) }
-    var disputes by remember { mutableStateOf(settings.notifyDisputes) }
-    var interval by remember { mutableIntStateOf(settings.intervalMinutes) }
-    var blocked by remember { mutableStateOf(false) }
-
-    fun turnOn() {
-        Notifier.ensureChannels(context)
-        settings.notifyEnabled = true
-        settings.resetTracking()
-        NotifyScheduler.restart(context)
-        enabled = true
-        blocked = false
-        Notifier.test(context)
-    }
-
-    fun turnOff() {
-        settings.notifyEnabled = false
-        NotifyScheduler.stop(context)
-        enabled = false
-    }
-
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted && Notifier.canNotify(context)) turnOn() else blocked = true
-    }
-
-    val requestOn: () -> Unit = {
-        if (Build.VERSION.SDK_INT >= 33 && !Notifier.hasPermission(context)) {
-            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        } else if (!Notifier.canNotify(context)) {
-            blocked = true
-        } else {
-            turnOn()
-        }
-    }
 
     val connect: () -> Unit = {
         keyError = if (clientId.isBlank() || secret.isBlank()) "Preencha o Client ID e o Client Secret" else null
@@ -240,6 +216,7 @@ fun SettingsScreen(store: CredentialStore, panel: PanelController, onBack: () ->
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: ApiException) {
+                    // 403 só por falta do escopo COMPANY ainda prova que a chave é válida.
                     if (e.code == 403 && !e.message.contains("bloqueado")) {
                         ok = true
                     } else {
@@ -251,21 +228,179 @@ fun SettingsScreen(store: CredentialStore, panel: PanelController, onBack: () ->
                 connecting = false
                 if (ok) {
                     store.saveApi(creds)
-                    hasKey = true
-                    clientId = ""
-                    secret = ""
-                    requestOn()
+                    onConnected()
                 }
             }
         }
     }
 
-    val openSystemSettings: () -> Unit = {
-        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        OutlinedTextField(
+            value = clientId,
+            onValueChange = { clientId = it },
+            label = { Text("Client ID") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedTextField(
+            value = secret,
+            onValueChange = { secret = it },
+            label = { Text("Client Secret") },
+            singleLine = true,
+            visualTransformation = if (showSecret) VisualTransformation.None else PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            trailingIcon = {
+                IconButton(onClick = { showSecret = !showSecret }) {
+                    Icon(if (showSecret) Icons.Filled.VisibilityOff else Icons.Filled.Visibility, contentDescription = null)
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        ErrorText(keyError)
+        PrimaryButton(buttonText, onClick = connect, loading = connecting)
+    }
+}
+
+/** Liga as notificações pedindo a permissão do Android quando precisa. */
+@Composable
+fun rememberNotificationStarter(onOn: () -> Unit, onBlocked: () -> Unit): () -> Unit {
+    val context = LocalContext.current
+    val settings = remember { AppSettings(context) }
+    val turnOn: () -> Unit = {
+        Notifier.ensureChannels(context)
+        settings.notifyEnabled = true
+        settings.resetTracking()
+        NotifyScheduler.restart(context)
+        Notifier.test(context)
+        onOn()
+    }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted && Notifier.canNotify(context)) turnOn() else onBlocked()
+    }
+    return {
+        if (Build.VERSION.SDK_INT >= 33 && !Notifier.hasPermission(context)) {
+            launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else if (!Notifier.canNotify(context)) {
+            onBlocked()
+        } else {
+            turnOn()
         }
-        context.startActivity(intent)
+    }
+}
+
+private fun openNotificationSettings(context: android.content.Context) {
+    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+        putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    context.startActivity(intent)
+}
+
+// =====================================================================
+// Configuração inicial (aparece uma única vez, logo depois do 1º login)
+// =====================================================================
+
+@Composable
+fun FirstSetupScreen(store: CredentialStore, onDone: () -> Unit) {
+    val context = LocalContext.current
+    var step by remember { mutableIntStateOf(if (store.load() != null) 1 else 0) }
+    var blocked by remember { mutableStateOf(false) }
+    val startNotifications = rememberNotificationStarter(onOn = onDone, onBlocked = { blocked = true })
+
+    BackHandler { onDone() }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(Bg)
+            .systemBarsPadding()
+            .imePadding()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Spacer(Modifier.height(8.dp))
+        Image(painter = painterResource(R.drawable.logo_emblem), contentDescription = null, modifier = Modifier.size(84.dp))
+        Text("Quase pronto!", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = TextMain)
+        Text(
+            "Configure uma única vez para receber avisos de Pix pago, saques e contestações, mesmo com o app fechado.",
+            color = Muted,
+            textAlign = TextAlign.Center,
+        )
+
+        SectionCard {
+            if (step == 0) {
+                Text("1. Chave de API", fontWeight = FontWeight.SemiBold)
+                Text(
+                    "No painel, vá em Configurações → Chaves de API, crie uma chave com os escopos " +
+                        "TRANSACTIONS e WITHDRAWS (leitura basta) e cole aqui. O Secret aparece só uma vez no painel.",
+                    color = Muted,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                ApiKeyForm(store, buttonText = "Continuar", onConnected = { step = 1 })
+            } else {
+                Text("2. Permitir notificações", fontWeight = FontWeight.SemiBold)
+                Text(
+                    "Chave conectada. Agora é só permitir que o Stratton mostre notificações.",
+                    color = Muted,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                if (blocked) {
+                    Text(
+                        "As notificações estão bloqueadas no Android. Libere nas configurações e toque de novo.",
+                        color = Warning,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    OutlinedButton(onClick = { openNotificationSettings(context) }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Abrir configurações do Android")
+                    }
+                }
+                PrimaryButton("Permitir notificações", onClick = startNotifications)
+            }
+        }
+
+        TextButton(onClick = onDone) { Text("Fazer depois (fica na engrenagem ⚙)", color = Muted) }
+    }
+}
+
+// =====================================================================
+// Configurações
+// =====================================================================
+
+private val intervals = listOf(2, 5, 15, 30)
+
+@Composable
+fun SettingsScreen(store: CredentialStore, panel: PanelController, onBack: () -> Unit) {
+    val context = LocalContext.current
+    val settings = remember { AppSettings(context) }
+
+    // Login salvo / bloqueio
+    var saveLogin by remember { mutableStateOf(store.savePanelLogin) }
+    var savedUser by remember { mutableStateOf(store.panelUser) }
+    var lock by remember { mutableStateOf(store.lockEnabled) }
+    var askLogout by remember { mutableStateOf(false) }
+
+    // Notificações
+    var keyId by remember { mutableStateOf(store.load()?.clientId) }
+    var enabled by remember { mutableStateOf(settings.notifyEnabled && Notifier.canNotify(context) && keyId != null) }
+    var sales by remember { mutableStateOf(settings.notifySales) }
+    var withdraws by remember { mutableStateOf(settings.notifyWithdraws) }
+    var disputes by remember { mutableStateOf(settings.notifyDisputes) }
+    var interval by remember { mutableIntStateOf(settings.intervalMinutes) }
+    var blocked by remember { mutableStateOf(false) }
+
+    val startNotifications = rememberNotificationStarter(
+        onOn = {
+            enabled = true
+            blocked = false
+        },
+        onBlocked = { blocked = true },
+    )
+    val turnOff: () -> Unit = {
+        settings.notifyEnabled = false
+        NotifyScheduler.stop(context)
+        enabled = false
     }
 
     Box(Modifier.fillMaxSize().background(Bg)) {
@@ -317,40 +452,26 @@ fun SettingsScreen(store: CredentialStore, panel: PanelController, onBack: () ->
                 // ---------- Notificações ----------
                 SectionCard {
                     Text("Notificações", fontWeight = FontWeight.SemiBold)
-                    if (!hasKey) {
+                    val currentKey = keyId
+                    if (currentKey == null) {
                         Text(
-                            "Para avisar de vendas e saques com o app fechado, o celular precisa de uma chave de API. " +
-                                "Crie no painel em Configurações → Chaves de API com os escopos TRANSACTIONS e WITHDRAWS " +
-                                "(só leitura basta) e cole aqui.",
+                            "Para avisar de vendas e saques com o app fechado, cole uma chave de API " +
+                                "(painel → Configurações → Chaves de API, escopos TRANSACTIONS e WITHDRAWS).",
                             color = Muted,
                             style = MaterialTheme.typography.bodySmall,
                         )
-                        OutlinedTextField(
-                            value = clientId,
-                            onValueChange = { clientId = it },
-                            label = { Text("Client ID") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        OutlinedTextField(
-                            value = secret,
-                            onValueChange = { secret = it },
-                            label = { Text("Client Secret") },
-                            singleLine = true,
-                            visualTransformation = if (showSecret) VisualTransformation.None else PasswordVisualTransformation(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                            trailingIcon = {
-                                IconButton(onClick = { showSecret = !showSecret }) {
-                                    Icon(if (showSecret) Icons.Filled.VisibilityOff else Icons.Filled.Visibility, contentDescription = null)
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        ErrorText(keyError)
-                        PrimaryButton("Ativar notificações", onClick = connect, loading = connecting)
+                        ApiKeyForm(store, buttonText = "Ativar notificações", onConnected = {
+                            keyId = store.load()?.clientId
+                            startNotifications()
+                        })
                     } else {
+                        Text(
+                            "Chave conectada: ${currentKey.take(6)}…${currentKey.takeLast(4)}",
+                            color = Success,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
                         SwitchRow("Ativar notificações", "Avisos mesmo com o app fechado", enabled) { on ->
-                            if (on) requestOn() else turnOff()
+                            if (on) startNotifications() else turnOff()
                         }
                         if (blocked) {
                             Text(
@@ -358,7 +479,7 @@ fun SettingsScreen(store: CredentialStore, panel: PanelController, onBack: () ->
                                 color = Warning,
                                 style = MaterialTheme.typography.bodySmall,
                             )
-                            OutlinedButton(onClick = openSystemSettings) { Text("Abrir configurações do Android") }
+                            OutlinedButton(onClick = { openNotificationSettings(context) }) { Text("Abrir configurações do Android") }
                         }
                         if (enabled) {
                             HorizontalDivider(color = Outline)
@@ -396,7 +517,7 @@ fun SettingsScreen(store: CredentialStore, panel: PanelController, onBack: () ->
                         TextButton(onClick = {
                             turnOff()
                             store.clearApi()
-                            hasKey = false
+                            keyId = null
                         }) { Text("Remover chave de API", color = Danger) }
                     }
                 }
