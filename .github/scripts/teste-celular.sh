@@ -66,6 +66,8 @@ python3 .github/scripts/webpush_send.py "$OUT/08-push-registro.json" | tee "$OUT
 sleep 15
 adb shell dumpsys notification --noredact > "$OUT/notificacoes.txt" 2>&1
 if grep -q "Pix recebido" "$OUT/notificacoes.txt"; then echo "NOTIFICAÇÃO RECEBIDA E ABERTA" | tee -a "$OUT/09-push-envio.txt"; else echo "notificação NÃO apareceu" | tee -a "$OUT/09-push-envio.txt"; fi
+adb logcat -d -s AppPush:* > "$OUT/09-push-log.txt" 2>&1
+cat "$OUT/09-push-log.txt"
 adb shell cmd statusbar expand-notifications
 sleep 2
 shot 09-notificacao

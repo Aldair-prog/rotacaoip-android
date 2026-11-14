@@ -106,7 +106,10 @@ object Notifier {
 
     @SuppressLint("MissingPermission")
     fun panel(context: Context, title: String, body: String, url: String?, id: String?) {
-        if (!canNotify(context)) return
+        if (!canNotify(context)) {
+            android.util.Log.w("AppPush", "notificações bloqueadas no Android")
+            return
+        }
         ensureChannels(context)
         val notifId = (id ?: (title + body + System.currentTimeMillis())).hashCode()
         val intent = Intent(context, MainActivity::class.java).apply {
@@ -168,7 +171,7 @@ object Notifier {
                     .build(),
             )
         } catch (e: SecurityException) {
-            // permissão retirada entre a checagem e o envio
+            android.util.Log.w("AppPush", "sem permissão para notificar", e)
         }
     }
 

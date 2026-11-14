@@ -97,6 +97,7 @@ object PushInbox {
             return
         }
         if (event.optString("event") != "message") return
+        android.util.Log.i("AppPush", "mensagem recebida id=${event.optString("id")} encoding=${event.optString("encoding")}")
         val id = event.optString("id")
         if (id.isNotBlank()) {
             if (!seen.add(id)) return
@@ -112,6 +113,7 @@ object PushInbox {
                 show(ctx, plain.toString(Charsets.UTF_8), id)
             } catch (e: Exception) {
                 // mensagem que não é do painel (ou chave antiga): ignora
+                android.util.Log.w("AppPush", "falha ao abrir/mostrar notificação", e)
             }
         } else if (message.isNotBlank() && message == store.testToken) {
             Notifier.panel(
@@ -183,6 +185,7 @@ class PushService : Service() {
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
+                        android.util.Log.w("AppPush", "conexão caiu: ${e.message}")
                         delay(backoff)
                         backoff = (backoff * 2).coerceAtMost(60_000L)
                     }
