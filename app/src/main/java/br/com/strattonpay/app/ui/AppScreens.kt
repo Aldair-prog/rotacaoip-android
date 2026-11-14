@@ -75,7 +75,7 @@ fun PanelScreen(
     // pede a digital (ou aproveita o desbloqueio que acabou de acontecer) e entra sozinho.
     val loginWithBiometric: () -> Unit = {
         if (recentlyUnlocked()) panel.submitSavedLogin()
-        else authenticate("Entrar na Stratton") { panel.submitSavedLogin() }
+        else authenticate("Entrar no ${BuildConfig.BRAND_NAME}") { panel.submitSavedLogin() }
     }
     LaunchedEffect(panel.loginFormVisible, unlocked) {
         if (!panel.loginFormVisible) {
@@ -129,7 +129,7 @@ fun PanelScreen(
                     modifier = Modifier.size(32.dp),
                 )
                 Spacer(Modifier.width(10.dp))
-                Text("STRATTON", color = TextMain, fontWeight = FontWeight.Bold, fontSize = 16.sp, letterSpacing = 3.5.sp)
+                Text(BuildConfig.BRAND_WORDMARK, color = TextMain, fontWeight = FontWeight.Bold, fontSize = 16.sp, letterSpacing = 3.5.sp)
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = { panel.reload() }) {
                     Icon(Icons.Filled.Refresh, contentDescription = "Recarregar", tint = Muted)
@@ -244,7 +244,7 @@ fun LockScreen(onUnlock: () -> Unit) {
 // Peças reaproveitadas: formulário da chave e ligar notificações
 // =====================================================================
 
-/** Formulário de Client ID + Secret. Valida na StrattonPay antes de salvar. */
+/** Formulário de Client ID + Secret. Valida no painel antes de salvar. */
 @Composable
 fun ApiKeyForm(store: CredentialStore, buttonText: String, onConnected: () -> Unit) {
     val scope = rememberCoroutineScope()
@@ -393,7 +393,7 @@ fun FirstSetupScreen(store: CredentialStore, onDone: () -> Unit) {
             } else {
                 Text("2. Permitir notificações", fontWeight = FontWeight.SemiBold)
                 Text(
-                    "Chave conectada. Agora é só permitir que o Stratton mostre notificações.",
+                    "Chave conectada. Agora é só permitir que o ${BuildConfig.BRAND_NAME} mostre notificações.",
                     color = Muted,
                     style = MaterialTheme.typography.bodySmall,
                 )
@@ -527,7 +527,7 @@ fun SettingsScreen(store: CredentialStore, panel: PanelController, onBack: () ->
                         }
                         if (blocked) {
                             Text(
-                                "As notificações estão bloqueadas para o Stratton no Android. Libere e volte aqui.",
+                                "As notificações estão bloqueadas para o ${BuildConfig.BRAND_NAME} no Android. Libere e volte aqui.",
                                 color = Warning,
                                 style = MaterialTheme.typography.bodySmall,
                             )
@@ -565,7 +565,7 @@ fun SettingsScreen(store: CredentialStore, panel: PanelController, onBack: () ->
                             Text(
                                 if (interval < 60) {
                                     "Tempo real: o Pix aparece em até 5 segundos. Fica um aviso fixo \"Monitorando pagamentos\" " +
-                                        "e gasta um pouco mais de bateria. No Xiaomi, deixe o Stratton sem restrição de bateria."
+                                        "e gasta um pouco mais de bateria. No Xiaomi, deixe o ${BuildConfig.BRAND_NAME} sem restrição de bateria."
                                 } else {
                                     "Modo econômico: gasta menos bateria, mas o aviso pode demorar até o intervalo escolhido."
                                 },
@@ -585,7 +585,7 @@ fun SettingsScreen(store: CredentialStore, panel: PanelController, onBack: () ->
                 }
 
                 Text(
-                    "Stratton · versão ${BuildConfig.VERSION_NAME}",
+                    "${BuildConfig.BRAND_NAME} · versão ${BuildConfig.VERSION_NAME}",
                     color = Muted,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.fillMaxWidth(),

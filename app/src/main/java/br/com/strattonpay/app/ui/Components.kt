@@ -98,7 +98,7 @@ fun SectionCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.
 fun BrandMark(modifier: Modifier = Modifier, width: Dp = 260.dp) {
     Image(
         painter = painterResource(R.drawable.logo_full),
-        contentDescription = "Stratton",
+        contentDescription = br.com.strattonpay.app.BuildConfig.BRAND_NAME,
         modifier = modifier.width(width),
     )
 }

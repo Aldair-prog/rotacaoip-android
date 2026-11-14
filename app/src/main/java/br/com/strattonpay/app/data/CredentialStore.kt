@@ -69,7 +69,7 @@ class CredentialStore(context: Context) {
     }
 
     companion object {
-        const val DEFAULT_BASE_URL = "https://app.strattonpay.com.br/api/v1"
+        val DEFAULT_BASE_URL = br.com.strattonpay.app.BuildConfig.API_BASE
         private const val KEY_BASE = "base_url"
         private const val KEY_ID = "client_id"
         private const val KEY_SECRET = "client_secret"

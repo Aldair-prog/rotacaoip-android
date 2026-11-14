@@ -2,15 +2,16 @@
 # Teste automático do app Stratton num celular Android virtual.
 # Gera prints e relatórios na pasta testes/.
 set -u
-OUT=testes
-PKG=br.com.strattonpay.app
+PKG=${1:-br.com.strattonpay.app}
+APK=${2:-saida/Stratton-teste.apk}
+OUT=${3:-testes}
 mkdir -p "$OUT"
 
 shot() { adb exec-out screencap -p > "$OUT/$1.png"; }
 
 echo "== Instalando"
 ls -la saida
-adb install -r -g saida/Stratton-teste.apk | tee "$OUT/instalacao.txt"
+adb install -r -g "$APK" | tee "$OUT/instalacao.txt"
 adb shell settings put system screen_off_timeout 1800000
 adb shell svc power stayon true
 echo "== Esperando o celular virtual terminar de iniciar (Google Play Services)"

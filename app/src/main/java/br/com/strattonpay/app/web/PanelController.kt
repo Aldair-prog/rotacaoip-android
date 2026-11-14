@@ -22,6 +22,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.toArgb
+import br.com.strattonpay.app.BuildConfig
 import br.com.strattonpay.app.data.CredentialStore
 import org.json.JSONObject
 
@@ -36,8 +38,8 @@ class PanelController(
     private val launchFileChooser: (Intent) -> Unit,
 ) {
     companion object {
-        const val HOME_URL = "https://app.strattonpay.com.br/"
-        private const val DOMAIN = "strattonpay.com.br"
+        val HOME_URL = BuildConfig.PANEL_URL
+        private val DOMAIN = BuildConfig.PANEL_DOMAIN
 
         fun isAllowedHost(host: String?): Boolean {
             val h = host?.lowercase() ?: return false
@@ -101,7 +103,7 @@ class PanelController(
 
     @SuppressLint("SetJavaScriptEnabled")
     val webView: WebView = WebView(activity).apply {
-        setBackgroundColor(android.graphics.Color.parseColor("#0B0E12"))
+        setBackgroundColor(br.com.strattonpay.app.ui.Bg.toArgb())
         settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -112,7 +114,7 @@ class PanelController(
             setSupportMultipleWindows(false)
             javaScriptCanOpenWindowsAutomatically = true
             mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
-            userAgentString = "$userAgentString StrattonApp/1.0"
+            userAgentString = "$userAgentString ${BuildConfig.BRAND_NAME.replace(" ", "")}App/${BuildConfig.VERSION_NAME}"
         }
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)

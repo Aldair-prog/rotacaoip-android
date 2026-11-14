@@ -42,11 +42,13 @@ jobs:
           STRATTON_KEY_PASSWORD: ${{ secrets.STRATTON_KEY_PASSWORD }}
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease assembleDebug lintDebug --no-daemon --stacktrace
+          ./gradlew assembleStrattonRelease assembleConnectRelease assembleStrattonDebug assembleConnectDebug lintStrattonDebug --no-daemon --stacktrace
           mkdir -p saida
-          cp app/build/outputs/apk/release/app-release.apk saida/Stratton.apk
-          cp app/build/outputs/apk/debug/app-debug.apk saida/Stratton-teste.apk
-          cp app/build/reports/lint-results-debug.txt saida/lint.txt 2>/dev/null || true
+          cp app/build/outputs/apk/stratton/release/app-stratton-release.apk saida/Stratton.apk
+          cp app/build/outputs/apk/connect/release/app-connect-release.apk saida/ConnectPay.apk
+          cp app/build/outputs/apk/stratton/debug/app-stratton-debug.apk saida/Stratton-teste.apk
+          cp app/build/outputs/apk/connect/debug/app-connect-debug.apk saida/ConnectPay-teste.apk
+          cp app/build/reports/lint-results-strattonDebug.txt saida/lint.txt 2>/dev/null || true
           ls -la saida
 
       - uses: actions/upload-artifact@v4
@@ -64,7 +66,9 @@ jobs:
           prerelease: true
           make_latest: false
           body: APK temporário (sem a chave fixa). Para instalar, desinstale a versão anterior.
-          files: saida/Stratton.apk
+          files: |
+            saida/Stratton.apk
+            saida/ConnectPay.apk
 
       - name: Publicar para download
         if: steps.key.outputs.signed == 'true'
@@ -75,8 +79,10 @@ jobs:
           target_commitish: ${{ github.sha }}
           prerelease: true
           make_latest: false
-          body: APK do app Stratton. Baixe o arquivo Stratton.apk abaixo e instale no Android (atualiza por cima da versão anterior).
-          files: saida/Stratton.apk
+          body: APKs: Stratton.apk e ConnectPay.apk. Baixe o do seu app abaixo e instale no Android (atualiza por cima da versão anterior).
+          files: |
+            saida/Stratton.apk
+            saida/ConnectPay.apk
 
   teste:
     needs: build
@@ -107,7 +113,13 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          script: bash .github/scripts/teste-celular.sh
+          script: bash .github/scripts/teste-celular.sh br.com.strattonpay.app saida/Stratton-teste.apk testes/stratton && bash .github/scripts/teste-celular.sh br.com.connectmdcpay.app saida/ConnectPay-teste.apk testes/connect
+
+      - name: Empacotar resultados
+        if: always()
+        run: |
+          mkdir -p testes
+          tar czf testes/resultados.tgz -C testes $(ls testes | grep -v tgz) 2>/dev/null || true
 
       - name: Publicar resultado dos testes
         if: always()
@@ -120,5 +132,5 @@ jobs:
           make_latest: false
           body: Prints e relatórios do último teste automático do app (build ${{ github.run_number }}).
           files: |
-            testes/*
+            testes/*.tgz
             saida/lint.txt

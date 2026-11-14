@@ -13,6 +13,7 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
+import br.com.strattonpay.app.BuildConfig
 import br.com.strattonpay.app.MainActivity
 import br.com.strattonpay.app.R
 import kotlinx.coroutines.CoroutineScope
@@ -101,8 +102,8 @@ class RealtimeService : Service() {
         )
         NotificationCompat.Builder(this, CH_MONITOR)
             .setSmallIcon(R.drawable.ic_notification)
-            .setColor(0xFF7B2FD0.toInt())
-            .setContentTitle("Stratton monitorando pagamentos")
+            .setColor(br.com.strattonpay.app.ui.BrandArgb)
+            .setContentTitle("${BuildConfig.BRAND_NAME} monitorando pagamentos")
             .setContentText("Você é avisado em segundos quando um Pix cair.")
             .setOngoing(true)
             .setSilent(true)
@@ -116,7 +117,7 @@ class RealtimeService : Service() {
         const val MIN_SECONDS = 5
         private const val ONGOING_ID = 4242
         private const val CH_MONITOR = "monitor"
-        private const val ACTION_STOP = "br.com.strattonpay.app.STOP_REALTIME"
+        private const val ACTION_STOP = "app.STOP_REALTIME"
 
         fun start(context: Context) {
             try {

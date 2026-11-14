@@ -9,14 +9,19 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import br.com.strattonpay.app.BuildConfig
 import br.com.strattonpay.app.R
 
-// Paleta tirada da logo do leão (gradiente #4A0E78 → #7B2FD0)
-val Brand = Color(0xFF7B2FD0)
-val BrandLight = Color(0xFFA56BFF)
-val BrandDark = Color(0xFF4A0E78)
-// Fundo igual ao do painel da Stratton (#0B0E12), para o app e o site ficarem sem emenda.
-val Bg = Color(0xFF0B0E12)
+private val isConnect = BuildConfig.FLAVOR == "connect"
+
+// Stratton: roxo do leão (#4A0E78 → #7B2FD0). Connect: vermelho do CP.
+val Brand = if (isConnect) Color(0xFFE11D2E) else Color(0xFF7B2FD0)
+val BrandLight = if (isConnect) Color(0xFFFF4D5E) else Color(0xFFA56BFF)
+val BrandDark = if (isConnect) Color(0xFF8E0A16) else Color(0xFF4A0E78)
+val BrandArgb: Int = if (isConnect) 0xFFE11D2E.toInt() else 0xFF7B2FD0.toInt()
+
+// Fundo igual ao do painel de cada marca, para o app e o site ficarem sem emenda.
+val Bg = if (isConnect) Color(0xFF0B0C11) else Color(0xFF0B0E12)
 val Surface1 = Color(0xFF13161D)
 val Surface2 = Color(0xFF1B1F28)
 val Outline = Color(0xFF262B36)

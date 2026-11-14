@@ -121,7 +121,7 @@ object Notifier {
         )
         val notification = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_notification)
-            .setColor(0xFF7B2FD0.toInt())
+            .setColor(br.com.strattonpay.app.ui.BrandArgb)
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))

@@ -65,7 +65,7 @@ class MainActivity : FragmentActivity() {
                     authenticate = { title, onOk -> authenticate(title, onOk) },
                 )
                 if (!unlocked) {
-                    LockScreen(onUnlock = { authenticate("Desbloquear Stratton") { unlocked = true } })
+                    LockScreen(onUnlock = { authenticate("Desbloquear ${BuildConfig.BRAND_NAME}") { unlocked = true } })
                 }
             }
         }

@@ -10,13 +10,37 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "br.com.strattonpay.app"
         minSdk = 26
         targetSdk = 35
         // Versão sobe sozinha a cada build do GitHub, então o APK novo sempre instala por cima do antigo.
         val build = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 2
         versionCode = build
         versionName = "1.2.$build"
+    }
+
+    // Um código, dois apps: cada marca com nome, site, cores e logos próprios.
+    flavorDimensions += "marca"
+    productFlavors {
+        create("stratton") {
+            dimension = "marca"
+            applicationId = "br.com.strattonpay.app"
+            resValue("string", "app_name", "Stratton")
+            buildConfigField("String", "BRAND_NAME", "\"Stratton\"")
+            buildConfigField("String", "BRAND_WORDMARK", "\"STRATTON\"")
+            buildConfigField("String", "PANEL_URL", "\"https://app.strattonpay.com.br/\"")
+            buildConfigField("String", "PANEL_DOMAIN", "\"strattonpay.com.br\"")
+            buildConfigField("String", "API_BASE", "\"https://app.strattonpay.com.br/api/v1\"")
+        }
+        create("connect") {
+            dimension = "marca"
+            applicationId = "br.com.connectmdcpay.app"
+            resValue("string", "app_name", "Connect Pay")
+            buildConfigField("String", "BRAND_NAME", "\"Connect Pay\"")
+            buildConfigField("String", "BRAND_WORDMARK", "\"CONNECT PAY\"")
+            buildConfigField("String", "PANEL_URL", "\"https://app.connectmdcpay.com.br/\"")
+            buildConfigField("String", "PANEL_DOMAIN", "\"connectmdcpay.com.br\"")
+            buildConfigField("String", "API_BASE", "\"https://app.connectmdcpay.com.br/api/v1\"")
+        }
     }
 
     // Mesma chave em todos os builds: sem isso o Android recusa instalar a atualização por cima.
