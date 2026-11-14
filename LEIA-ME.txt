@@ -1,0 +1,11 @@
+APP DETETIVE FORENSE (WebView) - como gerar o APK
+=================================================
+1. No GitHub, crie um repositório novo (ex: detetive-forense-app) ou uma branch nova
+   no rotacaoip-android (ex: detetive-app).
+2. "Add file" > "Upload files" e arraste TODO o conteúdo desta pasta
+   (inclusive a pasta .github e o arquivo app/release.jks). Commit.
+3. Aba "Actions" > workflow "Gerar APK" roda sozinho (~4 min).
+4. Abra a execução concluída > "Artifacts" > DetetiveForense-APK > baixe o zip, dentro tem o APK.
+
+ATUALIZAÇÕES: aumente versionCode em app/build.gradle.kts (1 -> 2 -> 3...)
+e NUNCA troque o app/release.jks, senão o Android não instala por cima.

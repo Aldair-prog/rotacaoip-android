@@ -1,0 +1,49 @@
+name: Gerar APK Detetive Forense
+
+on:
+  push:
+    branches: [detetive-app]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Compilar APK
+        id: compilar
+        run: |
+          set +e
+          gradle assembleRelease --no-daemon --stacktrace > build.log 2>&1
+          echo "codigo=$?" >> "$GITHUB_OUTPUT"
+          tail -n 80 build.log
+
+      - name: Publicar APK e log no ramo "build-detetive"
+        if: always()
+        run: |
+          mkdir -p saida
+          cp build.log saida/ || true
+          cp app/build/outputs/apk/release/*.apk saida/DetetiveForense.apk 2>/dev/null || true
+          echo "run=${{ github.run_number }} sha=${{ github.sha }} codigo=${{ steps.compilar.outputs.codigo }}" > saida/INFO.txt
+          cd saida
+          git init -q
+          git checkout -q -b build-detetive
+          git add .
+          git -c user.name="ci" -c user.email="ci@detetive" commit -q -m "build ${{ github.run_number }}"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" build-detetive
+
+      - name: Falhar se nao gerou o APK
+        run: test -f app/build/outputs/apk/release/app-release.apk
