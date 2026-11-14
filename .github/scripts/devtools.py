@@ -79,5 +79,22 @@ CONTINUE = r"""
 })()
 """
 
-out = ev({"inspecionar": INSPECT, "preencher": FILL, "continuar": CONTINUE}[MODE])
+PUSH = r"""
+(async function(){
+  var r = {push_instalado: !!window.__appPushInstalled, tem_PushManager: typeof window.PushManager,
+           tem_Notification: typeof window.Notification, tem_serviceWorker: !!navigator.serviceWorker};
+  try {
+    r.permissao = Notification.permission;
+    var key = new Uint8Array(65); key[0] = 4; for (var i = 1; i < 65; i++) key[i] = i;
+    var reg = await navigator.serviceWorker.ready;
+    var sub = await reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: key});
+    r.sub = sub ? sub.toJSON() : null;
+    var again = await reg.pushManager.getSubscription();
+    r.getSubscription_igual = !!again && again.endpoint === r.sub.endpoint;
+  } catch (e) { r.erro = String(e && (e.name + ': ' + e.message)); }
+  return r;
+})()
+"""
+
+out = ev({"inspecionar": INSPECT, "preencher": FILL, "continuar": CONTINUE, "push": PUSH}[MODE])
 print(json.dumps(out, indent=2, ensure_ascii=False))

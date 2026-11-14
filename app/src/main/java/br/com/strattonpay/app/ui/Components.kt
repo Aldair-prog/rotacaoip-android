@@ -33,26 +33,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.com.strattonpay.app.R
-import br.com.strattonpay.app.data.ApiException
-import kotlinx.coroutines.CancellationException
-
-// ---------- Estado de carregamento ----------
-
-sealed interface Load<out T> {
-    data object Loading : Load<Nothing>
-    data class Ok<T>(val data: T) : Load<T>
-    data class Err(val message: String) : Load<Nothing>
-}
-
-suspend fun <T> load(block: suspend () -> T): Load<T> = try {
-    Load.Ok(block())
-} catch (e: CancellationException) {
-    throw e
-} catch (e: ApiException) {
-    Load.Err(e.message)
-} catch (e: Exception) {
-    Load.Err(e.message ?: "Erro inesperado")
-}
 
 // ---------- Estrutura de tela ----------
 
@@ -182,53 +162,6 @@ fun InfoRow(label: String, value: String?, onCopy: (() -> Unit)? = null) {
         )
         if (onCopy != null && !value.isNullOrBlank()) {
             TextButton(onClick = onCopy, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) { Text("Copiar") }
-        }
-    }
-}
-
-/** Campo de valor que preenche da direita: digitar 1, 0, 0, 0 vira R$ 10,00. */
-@Composable
-fun MoneyField(cents: Long, onChange: (Long) -> Unit, label: String, modifier: Modifier = Modifier, supporting: String? = null) {
-    val text = if (cents == 0L) "" else money(cents)
-    OutlinedTextField(
-        value = TextFieldValue(text, selection = TextRange(text.length)),
-        onValueChange = { v ->
-            val digits = v.text.filter { it.isDigit() }.take(11)
-            onChange(digits.toLongOrNull() ?: 0L)
-        },
-        label = { Text(label) },
-        placeholder = { Text("R$ 0,00") },
-        supportingText = { if (supporting != null) Text(supporting) },
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        singleLine = true,
-        textStyle = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-        modifier = modifier.fillMaxWidth(),
-    )
-}
-
-/** Copiar para a área de transferência com aviso. */
-@Composable
-fun rememberCopy(): (text: String, toast: String) -> Unit {
-    val clipboard = LocalClipboardManager.current
-    val context = LocalContext.current
-    return remember(clipboard, context) {
-        { text, toast ->
-            clipboard.setText(AnnotatedString(text))
-            Toast.makeText(context, toast, Toast.LENGTH_SHORT).show()
-        }
-    }
-}
-
-@Composable
-fun rememberShare(): (text: String) -> Unit {
-    val context = LocalContext.current
-    return remember(context) {
-        { text ->
-            val send = Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_TEXT, text)
-            }
-            context.startActivity(Intent.createChooser(send, "Compartilhar"))
         }
     }
 }

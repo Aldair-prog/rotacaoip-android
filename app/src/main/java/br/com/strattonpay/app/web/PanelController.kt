@@ -25,6 +25,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.toArgb
 import br.com.strattonpay.app.BuildConfig
 import br.com.strattonpay.app.data.CredentialStore
+import br.com.strattonpay.app.notify.Notifier
+import br.com.strattonpay.app.push.PushService
+import br.com.strattonpay.app.push.PushStore
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import org.json.JSONObject
 
 /**
@@ -36,7 +41,10 @@ class PanelController(
     private val activity: Activity,
     private val store: CredentialStore,
     private val launchFileChooser: (Intent) -> Unit,
+    /** Pede a permissão de notificação do Android e devolve se foi concedida. */
+    private val requestNotificationPermission: ((Boolean) -> Unit) -> Unit,
 ) {
+    private val pushStore = PushStore(activity.applicationContext)
     companion object {
         val HOME_URL = BuildConfig.PANEL_URL
         private val DOMAIN = BuildConfig.PANEL_DOMAIN
@@ -119,6 +127,12 @@ class PanelController(
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
         addJavascriptInterface(Bridge(), "StrattonBridge")
+        addJavascriptInterface(PushBridge(), "AppPush")
+        // Injeta o "push de navegador" antes do painel carregar, quando o Android suporta.
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            val origin = Uri.parse(HOME_URL).let { "${it.scheme}://${it.host}" }
+            WebViewCompat.addDocumentStartJavaScript(this, NATIVE_PUSH_SCRIPT, setOf(origin))
+        }
         webViewClient = Client()
         webChromeClient = Chrome()
         setDownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
@@ -177,6 +191,7 @@ class PanelController(
             error = null
             loggedInView = false
             loginFormVisible = false
+            injectPush()
         }
 
         override fun onPageFinished(view: WebView, url: String) {
@@ -287,6 +302,66 @@ class PanelController(
             Toast.makeText(activity, "Nenhum app para abrir este link", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             // link inválido
+        }
+    }
+
+    private fun injectPush() {
+        if (isAllowedHost(Uri.parse(currentUrl).host)) webView.evaluateJavascript(NATIVE_PUSH_SCRIPT, null)
+    }
+
+    private fun permissionState(): String =
+        if (Notifier.canNotify(activity)) "granted" else "default"
+
+    /**
+     * Ponte do push: o painel pede uma assinatura como pediria a um navegador,
+     * e o app entrega o endereço de entrega + chaves. O painel registra isso na conta.
+     */
+    private inner class PushBridge {
+        private fun allowed() = isAllowedHost(Uri.parse(currentUrl).host)
+
+        @JavascriptInterface
+        fun permission(): String = if (allowed()) permissionState() else "denied"
+
+        @JavascriptInterface
+        fun requestPermission() {
+            if (!allowed()) return
+            activity.runOnUiThread {
+                requestNotificationPermission { granted ->
+                    Notifier.ensureChannels(activity)
+                    val state = if (granted && Notifier.canNotify(activity)) "granted" else "denied"
+                    webView.evaluateJavascript("window.__appPushPermissionResult && window.__appPushPermissionResult('$state');", null)
+                }
+            }
+        }
+
+        @JavascriptInterface
+        fun subscribe(vapid: String?): String {
+            if (!allowed()) return ""
+            if (!vapid.isNullOrBlank()) pushStore.vapid = vapid
+            pushStore.ensureKeys()
+            pushStore.subscribed = true
+            PushService.start(activity.applicationContext)
+            return pushStore.subscriptionJson()
+        }
+
+        @JavascriptInterface
+        fun getSubscription(): String =
+            if (allowed() && pushStore.subscribed) pushStore.subscriptionJson() else ""
+
+        /** O painel confirmou que salvou a assinatura na conta. */
+        @JavascriptInterface
+        fun confirm(endpoint: String?) {
+            if (!allowed() || endpoint != pushStore.endpoint) return
+            pushStore.subscribed = true
+            PushService.start(activity.applicationContext)
+        }
+
+        @JavascriptInterface
+        fun unsubscribe(): Boolean {
+            if (!allowed()) return false
+            pushStore.subscribed = false
+            PushService.stop(activity.applicationContext)
+            return true
         }
     }
 
@@ -418,5 +493,161 @@ private val LOGIN_SCRIPT = """
   window.__strattonLoginHelper = true;
   fill();
   report();
+})();
+""".trimIndent()
+
+
+/**
+ * "Push de navegador" para o painel dentro do app (o WebView do Android não tem).
+ * Mesma ideia do app oficial da Connect: o painel chama pushManager.subscribe() e
+ * Notification.requestPermission() normalmente, e quem responde é o app.
+ */
+private val NATIVE_PUSH_SCRIPT = """
+(function(){
+  if (window.top !== window) return;
+  if (window.__appPushInstalled || !window.AppPush) return;
+  window.__appPushInstalled = true;
+
+  function err(name, msg){ try { return new DOMException(msg || name, name); } catch(e){ var x = new Error(msg || name); x.name = name; return x; } }
+  function toB64u(buf){
+    if (!buf) return '';
+    if (typeof buf === 'string') return buf.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+${'$'}/,'');
+    var u = buf instanceof ArrayBuffer ? new Uint8Array(buf) : new Uint8Array(buf.buffer, buf.byteOffset || 0, buf.byteLength);
+    var s = ''; for (var i = 0; i < u.length; i++) s += String.fromCharCode(u[i]);
+    return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+${'$'}/,'');
+  }
+  function fromB64u(v){
+    var s = String(v || '').replace(/-/g,'+').replace(/_/g,'/');
+    while (s.length % 4) s += '=';
+    var b = atob(s), u = new Uint8Array(b.length);
+    for (var i = 0; i < b.length; i++) u[i] = b.charCodeAt(i);
+    return u.buffer;
+  }
+  function makeSub(raw){
+    if (!raw) return null;
+    var d; try { d = JSON.parse(raw); } catch(e){ return null; }
+    if (!d || !d.endpoint) return null;
+    return {
+      endpoint: d.endpoint,
+      expirationTime: null,
+      options: { userVisibleOnly: true, applicationServerKey: d.vapid ? fromB64u(d.vapid) : null },
+      getKey: function(n){ return n === 'p256dh' ? fromB64u(d.p256dh) : (n === 'auth' ? fromB64u(d.auth) : null); },
+      toJSON: function(){ return { endpoint: d.endpoint, expirationTime: null, keys: { p256dh: d.p256dh, auth: d.auth } }; },
+      unsubscribe: function(){ return Promise.resolve(AppPush.unsubscribe()); }
+    };
+  }
+
+  var waiting = [];
+  window.__appPushPermissionResult = function(state){
+    var list = waiting; waiting = [];
+    list.forEach(function(cb){ try { cb(state); } catch(e){} });
+  };
+  function askPermission(){
+    return new Promise(function(resolve){
+      var p = AppPush.permission();
+      if (p === 'granted') { resolve(p); return; }
+      waiting.push(resolve);
+      AppPush.requestPermission();
+    });
+  }
+
+  function NativePushManager(){}
+  NativePushManager.supportedContentEncodings = ['aes128gcm'];
+  NativePushManager.prototype.subscribe = function(options){
+    var vapid = toB64u(options && options.applicationServerKey);
+    return askPermission().then(function(state){
+      if (state !== 'granted') throw err('NotAllowedError', 'Permissão de notificação negada.');
+      var sub = makeSub(AppPush.subscribe(vapid));
+      if (!sub) throw err('InvalidStateError', 'Não foi possível criar a assinatura.');
+      return sub;
+    });
+  };
+  NativePushManager.prototype.getSubscription = function(){ return Promise.resolve(makeSub(AppPush.getSubscription())); };
+  NativePushManager.prototype.permissionState = function(){
+    var p = AppPush.permission(); return Promise.resolve(p === 'default' ? 'prompt' : p);
+  };
+  var pushManager = new NativePushManager();
+  try { Object.defineProperty(window, 'PushManager', { value: NativePushManager, configurable: true, writable: true }); }
+  catch(e){ window.PushManager = NativePushManager; }
+
+  function NativeNotification(){ /* o app mostra as notificações que chegam pelo push */ }
+  Object.defineProperty(NativeNotification, 'permission', { configurable: true, enumerable: true, get: function(){ return AppPush.permission(); } });
+  NativeNotification.requestPermission = function(cb){
+    return askPermission().then(function(state){ if (typeof cb === 'function') cb(state); return state; });
+  };
+  try { Object.defineProperty(window, 'Notification', { value: NativeNotification, configurable: true, writable: true }); }
+  catch(e){ window.Notification = NativeNotification; }
+
+  var virtualReg = {
+    scope: location.origin + '/', active: { state: 'activated' }, installing: null, waiting: null,
+    pushManager: pushManager,
+    showNotification: function(){ return Promise.resolve(); },
+    getNotifications: function(){ return Promise.resolve([]); },
+    update: function(){ return Promise.resolve(); },
+    unregister: function(){ return Promise.resolve(true); }
+  };
+  function attach(reg){
+    if (!reg) return virtualReg;
+    try { if (!reg.pushManager || reg.pushManager !== pushManager) Object.defineProperty(reg, 'pushManager', { configurable: true, get: function(){ return pushManager; } }); } catch(e){}
+    return reg.pushManager ? reg : virtualReg;
+  }
+  try {
+    if (window.ServiceWorkerRegistration && window.ServiceWorkerRegistration.prototype) {
+      Object.defineProperty(window.ServiceWorkerRegistration.prototype, 'pushManager', { configurable: true, get: function(){ return pushManager; } });
+    }
+  } catch(e){}
+  var sw = navigator.serviceWorker;
+  if (sw) {
+    try { var reg0 = sw.register.bind(sw); sw.register = function(){ return Promise.resolve(reg0.apply(sw, arguments)).then(attach, function(){ return virtualReg; }); }; } catch(e){}
+    try { var get0 = sw.getRegistration.bind(sw); sw.getRegistration = function(){ return Promise.resolve(get0.apply(sw, arguments)).then(attach, function(){ return virtualReg; }); }; } catch(e){}
+    try { var all0 = sw.getRegistrations.bind(sw); sw.getRegistrations = function(){ return Promise.resolve(all0.apply(sw, arguments)).then(function(l){ return (l && l.length ? l : [virtualReg]).map(attach); }, function(){ return [virtualReg]; }); }; } catch(e){}
+    try {
+      var proto = window.ServiceWorkerContainer && window.ServiceWorkerContainer.prototype;
+      var rd = proto && Object.getOwnPropertyDescriptor(proto, 'ready');
+      if (rd && rd.get && rd.configurable) {
+        Object.defineProperty(proto, 'ready', { configurable: true, get: function(){
+          var nat; try { nat = rd.get.call(this); } catch(e){ nat = Promise.reject(); }
+          var fb = new Promise(function(r){ setTimeout(function(){ r(virtualReg); }, 4000); });
+          return Promise.race([Promise.resolve(nat).then(attach), fb]);
+        }});
+      }
+    } catch(e){}
+  } else {
+    var vc = {
+      register: function(){ return Promise.resolve(virtualReg); },
+      getRegistration: function(){ return Promise.resolve(virtualReg); },
+      getRegistrations: function(){ return Promise.resolve([virtualReg]); },
+      ready: Promise.resolve(virtualReg), controller: null,
+      addEventListener: function(){}, removeEventListener: function(){}
+    };
+    try { Object.defineProperty(navigator, 'serviceWorker', { value: vc, configurable: true }); }
+    catch(e){ try { Object.defineProperty(Object.getPrototypeOf(navigator), 'serviceWorker', { configurable: true, get: function(){ return vc; } }); } catch(_){} }
+  }
+
+  // Quando o painel salva a assinatura na conta, avisa o app (liga a recepção).
+  function isSubPost(rawUrl, method){
+    try {
+      var u = new URL(String(rawUrl || ''), location.href);
+      return u.origin === location.origin && String(method || 'GET').toUpperCase() === 'POST' &&
+        /\/notifications\/@me\/push-subscriptions\/?${'$'}/.test(u.pathname);
+    } catch(e){ return false; }
+  }
+  function endpointOf(body){ try { var d = JSON.parse(typeof body === 'string' ? body : ''); return d && typeof d.endpoint === 'string' ? d.endpoint : ''; } catch(e){ return ''; } }
+  var f0 = window.fetch;
+  if (typeof f0 === 'function') {
+    window.fetch = function(input, init){
+      var url = typeof input === 'string' || input instanceof URL ? String(input) : (input && input.url);
+      var method = init && init.method ? init.method : (input && input.method);
+      var ep = isSubPost(url, method) ? endpointOf(init && init.body) : '';
+      return Promise.resolve(f0.apply(this, arguments)).then(function(r){ if (ep && r && r.ok) { try { AppPush.confirm(ep); } catch(e){} } return r; });
+    };
+  }
+  var open0 = XMLHttpRequest.prototype.open, send0 = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.open = function(method, url){ this.__appPushPost = isSubPost(url, method); return open0.apply(this, arguments); };
+  XMLHttpRequest.prototype.send = function(body){
+    var ep = this.__appPushPost ? endpointOf(body) : '';
+    if (ep) this.addEventListener('loadend', function(){ if (this.status >= 200 && this.status < 300) { try { AppPush.confirm(ep); } catch(e){} } });
+    return send0.apply(this, arguments);
+  };
 })();
 """.trimIndent()

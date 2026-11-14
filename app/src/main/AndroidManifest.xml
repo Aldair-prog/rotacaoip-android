@@ -7,6 +7,7 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
@@ -29,18 +30,18 @@
             </intent-filter>
         </activity>
 
-        <!-- Monitor de pagamentos em tempo real (checagem a cada 5 s) -->
+        <!-- Recepção das notificações do painel (Web Push) -->
         <service
-            android:name=".notify.RealtimeService"
+            android:name=".push.PushService"
             android:exported="false"
             android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Monitoramento em tempo real de pagamentos Pix da conta do usuário" />
+                android:value="Recebe as notificações push do painel da conta do usuário" />
         </service>
 
         <receiver
-            android:name=".notify.BootReceiver"
+            android:name=".push.BootReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

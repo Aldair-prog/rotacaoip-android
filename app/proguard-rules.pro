@@ -4,12 +4,6 @@
     @android.webkit.JavascriptInterface <methods>;
 }
 
-# kotlinx.serialization (modelos da API usados pelas notificações)
--keepattributes *Annotation*, InnerClasses, Signature
--keepclassmembers class br.com.strattonpay.app.data.** { *** Companion; }
--keepclasseswithmembers class br.com.strattonpay.app.data.** { kotlinx.serialization.KSerializer serializer(...); }
--keep,includedescriptorclasses class br.com.strattonpay.app.data.**$$serializer { *; }
-
 # Avisos de bibliotecas opcionais (Tink / OkHttp)
 -dontwarn com.google.errorprone.annotations.**
 -dontwarn javax.annotation.**

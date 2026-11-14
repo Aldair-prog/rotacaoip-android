@@ -52,6 +52,26 @@ cat "$OUT/04b-login-continuar.json" "$OUT/04c-login-etapa-2-inspecao.json"
 adb shell input keyevent 4
 sleep 3
 
+echo "== Push: o app se registra como o painel faria"
+adb shell am start -n "$PKG/br.com.strattonpay.app.MainActivity" >/dev/null 2>&1
+sleep 4
+PID=$(adb shell pidof "$PKG" | tr -d '\r')
+adb forward --remove-all
+adb forward tcp:9222 "localabstract:webview_devtools_remote_$PID"
+python3 .github/scripts/devtools.py push > "$OUT/08-push-registro.json" 2>&1
+cat "$OUT/08-push-registro.json"
+sleep 8
+echo "== Push: enviando notificação criptografada pelo mesmo caminho do servidor"
+python3 .github/scripts/webpush_send.py "$OUT/08-push-registro.json" | tee "$OUT/09-push-envio.txt" || echo "falha no envio" >> "$OUT/09-push-envio.txt"
+sleep 15
+adb shell dumpsys notification --noredact > "$OUT/notificacoes.txt" 2>&1
+if grep -q "Pix recebido" "$OUT/notificacoes.txt"; then echo "NOTIFICAÇÃO RECEBIDA E ABERTA" | tee -a "$OUT/09-push-envio.txt"; else echo "notificação NÃO apareceu" | tee -a "$OUT/09-push-envio.txt"; fi
+adb shell cmd statusbar expand-notifications
+sleep 2
+shot 09-notificacao
+adb shell cmd statusbar collapse
+sleep 1
+
 echo "== Abrindo Configurações"
 python3 .github/scripts/tocar.py "Configurações" | tee "$OUT/05-toque.txt"
 sleep 2

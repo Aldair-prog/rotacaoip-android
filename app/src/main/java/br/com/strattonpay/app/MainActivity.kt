@@ -1,6 +1,9 @@
 package br.com.strattonpay.app
 
+import android.Manifest
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import android.webkit.WebView
@@ -15,9 +18,8 @@ import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import br.com.strattonpay.app.data.CredentialStore
-import br.com.strattonpay.app.notify.AppSettings
 import br.com.strattonpay.app.notify.Notifier
-import br.com.strattonpay.app.notify.NotifyScheduler
+import br.com.strattonpay.app.push.PushService
 import br.com.strattonpay.app.ui.LockScreen
 import br.com.strattonpay.app.ui.PanelScreen
 import br.com.strattonpay.app.ui.StrattonTheme
@@ -34,6 +36,21 @@ class MainActivity : FragmentActivity() {
         panel.onFileChosen(result.resultCode, result.data)
     }
 
+    private var permissionCallback: ((Boolean) -> Unit)? = null
+    private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        permissionCallback?.invoke(granted)
+        permissionCallback = null
+    }
+
+    private fun requestNotificationPermission(onResult: (Boolean) -> Unit) {
+        if (Build.VERSION.SDK_INT < 33 || Notifier.hasPermission(this)) {
+            onResult(Notifier.canNotify(this))
+        } else {
+            permissionCallback = onResult
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -42,8 +59,14 @@ class MainActivity : FragmentActivity() {
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
 
         store = CredentialStore(applicationContext)
-        panel = PanelController(this, store) { intent -> fileChooser.launch(intent) }
+        panel = PanelController(
+            activity = this,
+            store = store,
+            launchFileChooser = { intent -> fileChooser.launch(intent) },
+            requestNotificationPermission = { cb -> requestNotificationPermission(cb) },
+        )
         panel.start(savedInstanceState)
+        openUrlFromNotification(intent)
 
         val deviceAuth = canUseDeviceAuth()
         panel.biometricLogin = deviceAuth
@@ -51,7 +74,7 @@ class MainActivity : FragmentActivity() {
         unlocked = !lockAvailable || savedInstanceState?.getBoolean(KEY_UNLOCKED) == true
         handleTestExtras(intent)
 
-        if (AppSettings(this).notifyEnabled && store.load() != null) NotifyScheduler.ensure(this)
+        PushService.ensure(this)
 
         setContent {
             StrattonTheme {
@@ -85,9 +108,19 @@ class MainActivity : FragmentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        // Toque em notificação com o app aberto: traz o painel para frente atualizado.
-        if (intent.hasExtra(Notifier.EXTRA_ROUTE)) panel.reload()
+        openUrlFromNotification(intent)
         handleTestExtras(intent)
+    }
+
+    /** Toque numa notificação: abre a página do painel que ela indica. */
+    private fun openUrlFromNotification(intent: Intent?) {
+        val raw = intent?.getStringExtra(Notifier.EXTRA_URL) ?: return
+        intent.removeExtra(Notifier.EXTRA_URL)
+        val uri = Uri.parse(PanelController.HOME_URL).buildUpon().build().let { home ->
+            val target = Uri.parse(raw)
+            if (target.isAbsolute) target else Uri.withAppendedPath(home, raw.trimStart('/'))
+        }
+        if (PanelController.isAllowedHost(uri.host)) panel.webView.loadUrl(uri.toString())
     }
 
     /** Atalhos usados só pelos testes automáticos (versão de teste). */

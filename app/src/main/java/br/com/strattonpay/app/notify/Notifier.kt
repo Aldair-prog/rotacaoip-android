@@ -14,32 +14,21 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import br.com.strattonpay.app.MainActivity
 import br.com.strattonpay.app.R
-import br.com.strattonpay.app.data.Transaction
-import br.com.strattonpay.app.data.Withdraw
-import br.com.strattonpay.app.ui.money
+import br.com.strattonpay.app.ui.BrandArgb
 
 object Notifier {
 
-    const val EXTRA_ROUTE = "open_route"
+    /** Endereço do painel para abrir ao tocar na notificação. */
+    const val EXTRA_URL = "open_url"
 
-    private const val CH_SALES = "sales"
-    private const val CH_WITHDRAWS = "withdraws"
-    private const val CH_ALERTS = "alerts"
+    private const val CH_PANEL = "panel"
 
     fun ensureChannels(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
-        nm.createNotificationChannels(
-            listOf(
-                NotificationChannel(CH_SALES, "Vendas pagas", NotificationManager.IMPORTANCE_HIGH).apply {
-                    description = "Aviso quando um Pix é pago"
-                },
-                NotificationChannel(CH_WITHDRAWS, "Saques", NotificationManager.IMPORTANCE_HIGH).apply {
-                    description = "Saques pagos ou recusados"
-                },
-                NotificationChannel(CH_ALERTS, "Contestações e chargebacks", NotificationManager.IMPORTANCE_HIGH).apply {
-                    description = "Disputas abertas pelo pagador"
-                },
-            ),
+        nm.createNotificationChannel(
+            NotificationChannel(CH_PANEL, "Avisos do painel", NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "Pix pago, saques e demais avisos enviados pelo painel"
+            },
         )
     }
 
@@ -50,87 +39,32 @@ object Notifier {
     fun canNotify(context: Context): Boolean =
         hasPermission(context) && NotificationManagerCompat.from(context).areNotificationsEnabled()
 
-    fun sale(context: Context, t: Transaction) {
-        val who = t.customer?.name?.takeIf { it.isNotBlank() }
-        post(
-            context, CH_SALES, t.id.hashCode(),
-            title = "Pix recebido · ${money(t.amount)}",
-            text = if (who != null) "$who pagou ${money(t.amount)}." else "Uma cobrança de ${money(t.amount)} foi paga.",
-            route = "tx/${t.id}",
-        )
-    }
-
-    fun salesSummary(context: Context, count: Int, total: Long) {
-        post(
-            context, CH_SALES, 1001,
-            title = "$count vendas pagas · ${money(total)}",
-            text = "Abra o app para ver os detalhes.",
-            route = "transactions",
-        )
-    }
-
-    fun withdraw(context: Context, w: Withdraw) {
-        val paid = w.status == "COMPLETED"
-        post(
-            context, CH_WITHDRAWS, w.id.hashCode(),
-            title = if (paid) "Saque pago · ${money(w.netAmount)}" else "Saque recusado · ${money(w.amount)}",
-            text = if (paid) {
-                "O dinheiro foi enviado" + (w.pixKey?.let { " para $it" } ?: "") + "."
-            } else {
-                "O valor voltou para o saldo." + (w.adminMessage?.let { " Motivo: $it" } ?: "")
-            },
-            route = "wd/${w.id}",
-        )
-    }
-
-    fun dispute(context: Context, t: Transaction) {
-        val label = when (t.status) {
-            "IN_PROTEST" -> "Contestação aberta"
-            "PRE_CHARGEBACK" -> "Pré-chargeback"
-            "CHARGEBACK" -> "Chargeback confirmado"
-            else -> "Alerta na venda"
-        }
-        post(
-            context, CH_ALERTS, (t.id + t.status).hashCode(),
-            title = "$label · ${money(t.amount)}",
-            text = (t.customer?.name?.let { "Pagador: $it. " } ?: "") + "Toque para ver a venda.",
-            route = "tx/${t.id}",
-        )
-    }
-
-    fun test(context: Context) {
-        post(
-            context, CH_SALES, 999,
-            title = "Notificações ativadas",
-            text = "É assim que você vai saber quando um Pix cair.",
-            route = null,
-        )
-    }
-
     @SuppressLint("MissingPermission")
-    private fun post(context: Context, channel: String, id: Int, title: String, text: String, route: String?) {
+    fun panel(context: Context, title: String, body: String, url: String?, id: String?) {
         if (!canNotify(context)) return
         ensureChannels(context)
+        val notifId = (id ?: (title + body + System.currentTimeMillis())).hashCode()
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            if (route != null) putExtra(EXTRA_ROUTE, route)
+            if (!url.isNullOrBlank()) putExtra(EXTRA_URL, url)
         }
         val pending = PendingIntent.getActivity(
-            context, id, intent,
+            context, notifId, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val notification = NotificationCompat.Builder(context, channel)
+        val notification = NotificationCompat.Builder(context, CH_PANEL)
             .setSmallIcon(R.drawable.ic_notification)
-            .setColor(br.com.strattonpay.app.ui.BrandArgb)
+            .setColor(BrandArgb)
             .setContentTitle(title)
-            .setContentText(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setAutoCancel(true)
             .setContentIntent(pending)
             .build()
         try {
-            NotificationManagerCompat.from(context).notify(id, notification)
+            NotificationManagerCompat.from(context).notify(notifId, notification)
         } catch (e: SecurityException) {
             // permissão retirada entre a checagem e o envio
         }

@@ -42,7 +42,7 @@ jobs:
           STRATTON_KEY_PASSWORD: ${{ secrets.STRATTON_KEY_PASSWORD }}
         run: |
           chmod +x gradlew
-          ./gradlew assembleStrattonRelease assembleConnectRelease assembleStrattonDebug assembleConnectDebug lintStrattonDebug --no-daemon --stacktrace
+          ./gradlew testStrattonDebugUnitTest assembleStrattonRelease assembleConnectRelease assembleStrattonDebug assembleConnectDebug lintStrattonDebug --no-daemon --stacktrace
           mkdir -p saida
           cp app/build/outputs/apk/stratton/release/app-stratton-release.apk saida/Stratton.apk
           cp app/build/outputs/apk/connect/release/app-connect-release.apk saida/ConnectPay.apk
@@ -102,7 +102,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - run: pip install websocket-client
+      - run: pip install websocket-client cryptography
 
       - name: Rodar o app num celular Android virtual
         uses: reactivecircus/android-emulator-runner@v2
