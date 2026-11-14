@@ -61,7 +61,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: stratton-build-${{ github.run_number }}
-          name: Stratton (build ${{ github.run_number }}, temporário)
+          name: Stratton + Connect Pay (build ${{ github.run_number }}, temporário)
           target_commitish: ${{ github.sha }}
           prerelease: true
           make_latest: false
@@ -75,11 +75,11 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: stratton-build-${{ github.run_number }}
-          name: Stratton (build ${{ github.run_number }})
+          name: Stratton + Connect Pay (build ${{ github.run_number }})
           target_commitish: ${{ github.sha }}
           prerelease: true
           make_latest: false
-          body: APKs: Stratton.apk e ConnectPay.apk. Baixe o do seu app abaixo e instale no Android (atualiza por cima da versão anterior).
+          body: "Stratton.apk e ConnectPay.apk. Baixe o do seu app e instale no Android (atualiza por cima da versão anterior)."
           files: |
             saida/Stratton.apk
             saida/ConnectPay.apk
