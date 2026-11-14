@@ -248,7 +248,22 @@ fun SplashView() {
             Spacer(Modifier.height(12.dp))
             Text("Carregando...", color = Muted, style = MaterialTheme.typography.labelMedium, letterSpacing = 1.5.sp)
         }
+        CopyrightLine(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 18.dp))
     }
+}
+
+/** "© 2026 OPERAÇÕES DIGITAIS - …" — titular dos direitos do app. */
+@Composable
+fun CopyrightLine(modifier: Modifier = Modifier) {
+    val year = remember { java.util.Calendar.getInstance().get(java.util.Calendar.YEAR) }
+    Text(
+        "© $year ${BuildConfig.COPYRIGHT_HOLDER}",
+        color = Muted.copy(alpha = 0.7f),
+        style = MaterialTheme.typography.labelSmall,
+        letterSpacing = 1.sp,
+        textAlign = TextAlign.Center,
+        modifier = modifier,
+    )
 }
 
 /** Tela de digital: aura respirando e anel de scanner girando. */
@@ -293,6 +308,7 @@ fun LockScreen(onUnlock: () -> Unit) {
             Spacer(Modifier.height(18.dp))
             Text("Toque para desbloquear", color = Muted, style = MaterialTheme.typography.bodyMedium)
         }
+        CopyrightLine(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 18.dp))
     }
 }
 
@@ -367,6 +383,7 @@ fun OnboardingScreen(store: CredentialStore, biometricAvailable: Boolean, onCont
             }
             Spacer(Modifier.height(8.dp))
             PrimaryButton("Permitir e continuar", onClick = onContinue)
+            CopyrightLine(Modifier.padding(top = 6.dp))
         }
     }
 }
@@ -653,7 +670,8 @@ fun SettingsScreen(store: CredentialStore, panel: PanelController, onBack: () ->
                 }
 
                 Text(
-                    "${BuildConfig.BRAND_NAME} · versão ${BuildConfig.VERSION_NAME}",
+                    "© ${java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)} ${BuildConfig.COPYRIGHT_HOLDER}\n" +
+                        "Todos os direitos reservados · versão ${BuildConfig.VERSION_NAME}",
                     color = Muted,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.fillMaxWidth(),

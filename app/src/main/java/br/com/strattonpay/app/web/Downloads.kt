@@ -18,6 +18,9 @@ import java.io.File
 /** Salva comprovantes e arquivos que o painel manda baixar. */
 object Downloads {
 
+    /** Pasta dos arquivos baixados, com o nome do titular: Downloads/OPERAÇÕES DIGITAIS - … */
+    private val FOLDER = br.com.strattonpay.app.BuildConfig.COPYRIGHT_HOLDER
+
     /** Download normal (http/https), levando os cookies da sessão do painel. */
     fun enqueue(context: Context, url: String, userAgent: String?, contentDisposition: String?, mimeType: String?) {
         try {
@@ -28,7 +31,7 @@ object Downloads {
                 if (userAgent != null) addRequestHeader("User-Agent", userAgent)
                 setTitle(name)
                 setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name)
+                setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "$FOLDER/$name")
             }
             context.getSystemService(DownloadManager::class.java)?.enqueue(request)
             Toast.makeText(context, "Baixando $name…", Toast.LENGTH_SHORT).show()
@@ -54,19 +57,19 @@ object Downloads {
                 val values = ContentValues().apply {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, name)
                     put(MediaStore.MediaColumns.MIME_TYPE, mime)
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/$FOLDER")
                 }
                 val resolver = context.contentResolver
                 resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)?.also { u ->
                     resolver.openOutputStream(u)?.use { it.write(bytes) }
                 }
             } else {
-                val dir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.filesDir
+                val dir = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.filesDir, FOLDER).apply { mkdirs() }
                 File(dir, name).writeBytes(bytes)
                 null
             }
 
-            Toast.makeText(context, "$name salvo em Downloads", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "$name salvo em Downloads/$FOLDER", Toast.LENGTH_SHORT).show()
             if (uri != null) {
                 val open = Intent(Intent.ACTION_VIEW).apply {
                     setDataAndType(uri, mime)
