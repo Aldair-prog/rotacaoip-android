@@ -23,6 +23,12 @@ adb shell am start -W -n "$PKG/br.com.strattonpay.app.MainActivity" | tee "$OUT/
 sleep 1
 shot 01-abertura
 
+echo "== Boas-vindas (permissões)"
+sleep 4
+shot 01b-boas-vindas
+python3 .github/scripts/tocar.py "Permitir e continuar" | tee "$OUT/01b-toque.txt"
+sleep 2
+
 echo "== Esperando o painel carregar"
 sleep 25
 shot 02-painel

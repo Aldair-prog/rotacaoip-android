@@ -2,6 +2,7 @@ package br.com.strattonpay.app
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -26,7 +27,9 @@ import androidx.fragment.app.FragmentActivity
 import br.com.strattonpay.app.data.CredentialStore
 import br.com.strattonpay.app.notify.Notifier
 import br.com.strattonpay.app.push.PushService
+import br.com.strattonpay.app.notify.AppSettings
 import br.com.strattonpay.app.ui.LockScreen
+import br.com.strattonpay.app.ui.OnboardingScreen
 import br.com.strattonpay.app.ui.PanelScreen
 import br.com.strattonpay.app.ui.StrattonTheme
 import br.com.strattonpay.app.web.PanelController
@@ -46,6 +49,42 @@ class MainActivity : FragmentActivity() {
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         permissionCallback?.invoke(granted)
         permissionCallback = null
+    }
+
+    private var cameraCallback: ((Boolean) -> Unit)? = null
+    private val cameraPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        cameraCallback?.invoke(granted)
+        cameraCallback = null
+    }
+
+    private fun requestCameraPermission(onResult: (Boolean) -> Unit) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            onResult(true)
+        } else {
+            cameraCallback = onResult
+            cameraPermission.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    /** Boas-vindas: pede notificação e câmera de uma vez. */
+    private var onboardingDone by mutableStateOf(true)
+    private val startupPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        Notifier.ensureChannels(this)
+        AppSettings(this).onboardingDone = true
+        onboardingDone = true
+    }
+
+    private fun requestStartupPermissions() {
+        val list = buildList {
+            if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
+            add(Manifest.permission.CAMERA)
+        }.filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
+        if (list.isEmpty()) {
+            AppSettings(this).onboardingDone = true
+            onboardingDone = true
+        } else {
+            startupPermissions.launch(list.toTypedArray())
+        }
     }
 
     private fun requestNotificationPermission(onResult: (Boolean) -> Unit) {
@@ -70,12 +109,14 @@ class MainActivity : FragmentActivity() {
             store = store,
             launchFileChooser = { intent -> fileChooser.launch(intent) },
             requestNotificationPermission = { cb -> requestNotificationPermission(cb) },
+            requestCameraPermission = { cb -> requestCameraPermission(cb) },
         )
         panel.start(savedInstanceState)
         openUrlFromNotification(intent)
 
         val deviceAuth = canUseDeviceAuth()
-        panel.biometricLogin = deviceAuth
+        panel.biometricLogin = deviceAuth && store.biometricLoginEnabled
+        onboardingDone = AppSettings(this).onboardingDone
         val lockAvailable = store.lockEnabled && deviceAuth
         unlocked = !lockAvailable || savedInstanceState?.getBoolean(KEY_UNLOCKED) == true
         handleTestExtras(intent)
@@ -93,6 +134,18 @@ class MainActivity : FragmentActivity() {
                     recentlyUnlocked = { SystemClock.elapsedRealtime() - lastAuthAt < 60_000 },
                     authenticate = { title, onOk -> authenticate(title, onOk) },
                 )
+                // Primeira vez: boas-vindas pedindo as permissões (só aparece uma vez).
+                AnimatedVisibility(
+                    visible = unlocked && !onboardingDone,
+                    enter = fadeIn(tween(350)),
+                    exit = fadeOut(tween(350)),
+                ) {
+                    OnboardingScreen(
+                        store = store,
+                        biometricAvailable = deviceAuth,
+                        onContinue = { requestStartupPermissions() },
+                    )
+                }
                 // Ao desbloquear, a tela de digital "abre" com zoom e some.
                 AnimatedVisibility(
                     visible = !unlocked,

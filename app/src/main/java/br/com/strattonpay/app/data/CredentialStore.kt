@@ -40,6 +40,13 @@ class CredentialStore(context: Context) {
         prefs.edit().remove(KEY_PANEL_USER).remove(KEY_PANEL_PASS).apply()
     }
 
+    // ---------- Entrar no painel com digital ou rosto ----------
+
+    /** Com isso ligado, quando a sessão cai o app pede a digital/rosto e entra sozinho. */
+    var biometricLoginEnabled: Boolean
+        get() = prefs.getBoolean(KEY_BIO_LOGIN, true)
+        set(v) = prefs.edit().putBoolean(KEY_BIO_LOGIN, v).apply()
+
     // ---------- Bloqueio com digital ----------
 
     var lockEnabled: Boolean
@@ -51,5 +58,6 @@ class CredentialStore(context: Context) {
         private const val KEY_PANEL_USER = "panel_user"
         private const val KEY_PANEL_PASS = "panel_pass"
         private const val KEY_LOCK = "lock_enabled"
+        private const val KEY_BIO_LOGIN = "biometric_login"
     }
 }

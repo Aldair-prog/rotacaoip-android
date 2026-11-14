@@ -36,6 +36,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.PhotoCamera
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Visibility
@@ -83,6 +87,11 @@ fun PanelScreen(
 ) {
     var showSettings by remember { mutableStateOf(false) }
     val haptics = LocalHapticFeedback.current
+    var bioLoginOn by remember { mutableStateOf(store.biometricLoginEnabled) }
+    LaunchedEffect(showSettings) {
+        bioLoginOn = store.biometricLoginEnabled
+        panel.biometricLogin = biometricAvailable && bioLoginOn
+    }
     var autoLoginTried by remember { mutableStateOf(false) }
 
     // Entrar com digital: a sessão do painel caiu e há usuário/senha salvos ->
@@ -94,7 +103,7 @@ fun PanelScreen(
     LaunchedEffect(panel.loginFormVisible, unlocked) {
         if (!panel.loginFormVisible) {
             autoLoginTried = false
-        } else if (unlocked && biometricAvailable && !autoLoginTried && panel.hasSavedLogin()) {
+        } else if (unlocked && biometricAvailable && bioLoginOn && !autoLoginTried && panel.hasSavedLogin()) {
             autoLoginTried = true
             delay(400)
             loginWithBiometric()
@@ -163,7 +172,7 @@ fun PanelScreen(
 
         // Botão "Entrar com digital" sobre a tela de login do painel
         AnimatedVisibility(
-            visible = panel.loginFormVisible && biometricAvailable && panel.hasSavedLogin() && !showSettings,
+            visible = panel.loginFormVisible && biometricAvailable && bioLoginOn && panel.hasSavedLogin() && !showSettings,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier.align(Alignment.BottomCenter),
@@ -287,6 +296,100 @@ fun LockScreen(onUnlock: () -> Unit) {
     }
 }
 
+/**
+ * Boas-vindas (só na primeira vez): explica e pede as permissões,
+ * e deixa a pessoa escolher se quer entrar com digital/rosto.
+ */
+@Composable
+fun OnboardingScreen(store: CredentialStore, biometricAvailable: Boolean, onContinue: () -> Unit) {
+    var bio by remember { mutableStateOf(store.biometricLoginEnabled && store.savePanelLogin) }
+    val shine = rememberShine(periodMs = 3600, delayMs = 400)
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Brush.radialGradient(listOf(Color(0xFF14080B).takeIf { Brand.red > Brand.blue } ?: Color(0xFF0E0816), Color.Black))),
+    ) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .systemBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp, vertical = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                BrandAura(size = 190.dp, intensity = 0.8f)
+                Image(
+                    painter = painterResource(R.drawable.logo_emblem),
+                    contentDescription = null,
+                    modifier = Modifier.width(110.dp).shineSweep(shine),
+                )
+            }
+            Text(
+                "Bem-vindo ao ${BuildConfig.BRAND_NAME}",
+                style = TextStyle(brush = ChromeBrush, fontFamily = Inter, fontWeight = FontWeight.Bold, fontSize = 24.sp),
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                "Libere o que o app precisa para funcionar por completo. Dá para mudar tudo depois na engrenagem.",
+                color = Muted,
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Spacer(Modifier.height(4.dp))
+            PermissionItem(Icons.Filled.Notifications, "Notificações", "Aviso na hora de cada Pix pago, saque e alerta do painel.")
+            PermissionItem(Icons.Filled.PhotoCamera, "Câmera", "Foto de documento, comprovante e leitura de QR Code dentro do painel.")
+            if (biometricAvailable) {
+                SectionCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.Fingerprint, contentDescription = null, tint = BrandLight, modifier = Modifier.size(28.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                            Text("Entrar com digital ou rosto", fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "Salva seu usuário e senha criptografados neste celular. Quando precisar entrar de novo, é só a biometria.",
+                                color = Muted,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        Switch(
+                            checked = bio,
+                            onCheckedChange = {
+                                bio = it
+                                store.biometricLoginEnabled = it
+                                if (it) store.savePanelLogin = true
+                            },
+                            colors = SwitchDefaults.colors(checkedTrackColor = Brand, checkedThumbColor = Color.White),
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            PrimaryButton("Permitir e continuar", onClick = onContinue)
+        }
+    }
+}
+
+@Composable
+private fun PermissionItem(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, text: String) {
+    SectionCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(44.dp).background(Brand.copy(alpha = 0.15f), CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(icon, contentDescription = null, tint = BrandLight)
+            }
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text(title, fontWeight = FontWeight.SemiBold)
+                Text(text, color = Muted, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
 /** Botão "Entrar com digital" com a borda neon dando a volta. */
 @Composable
 fun BiometricButton(onClick: () -> Unit) {
@@ -306,7 +409,7 @@ fun BiometricButton(onClick: () -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.Fingerprint, contentDescription = null, tint = Color.White)
             Spacer(Modifier.width(10.dp))
-            Text("Entrar com digital", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            Text("Entrar com digital ou rosto", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
         }
     }
 }
@@ -317,6 +420,17 @@ private fun openNotificationSettings(context: android.content.Context) {
         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
     context.startActivity(intent)
+}
+
+private fun openAppSettings(context: android.content.Context) {
+    try {
+        context.startActivity(
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:${context.packageName}"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    } catch (e: Exception) {
+        // sem tela de configurações do app
+    }
 }
 
 /** Ignorar a otimização de bateria (Xiaomi e outros fecham apps em segundo plano). */
@@ -350,6 +464,14 @@ fun SettingsScreen(store: CredentialStore, panel: PanelController, onBack: () ->
     var saveLogin by remember { mutableStateOf(store.savePanelLogin) }
     var savedUser by remember { mutableStateOf(store.panelUser) }
     var lock by remember { mutableStateOf(store.lockEnabled) }
+    var bioLogin by remember { mutableStateOf(store.biometricLoginEnabled) }
+    var cameraOk by remember {
+        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
+    }
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        cameraOk = ok
+        if (!ok) openAppSettings(context)
+    }
     var askLogout by remember { mutableStateOf(false) }
 
     // Notificações (vêm do próprio painel, sem chave de API)
@@ -420,12 +542,41 @@ fun SettingsScreen(store: CredentialStore, panel: PanelController, onBack: () ->
                         }
                     }
                     HorizontalDivider(color = Outline)
-                    SwitchRow("Pedir digital ao abrir", "Digital, rosto ou senha do celular", lock) {
+                    SwitchRow(
+                        "Entrar com digital ou rosto",
+                        "Quando a sessão cair, o app usa a biometria e entra sozinho com o usuário e a senha salvos",
+                        bioLogin && saveLogin,
+                    ) {
+                        bioLogin = it
+                        store.biometricLoginEnabled = it
+                        if (it && !saveLogin) {
+                            saveLogin = true
+                            store.savePanelLogin = true
+                        }
+                    }
+                    HorizontalDivider(color = Outline)
+                    SwitchRow("Pedir digital ou rosto ao abrir", "Ninguém abre o app sem a sua biometria ou a senha do celular", lock) {
                         lock = it
                         store.lockEnabled = it
                     }
                     HorizontalDivider(color = Outline)
                     TextButton(onClick = { askLogout = true }) { Text("Sair do painel neste celular", color = Danger) }
+                }
+
+                // ---------- Câmera ----------
+                SectionCard {
+                    Text("Câmera", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "Usada pelo painel para foto de documento, envio de comprovante e leitura de QR Code.",
+                        color = Muted,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    StatusLine(ok = cameraOk, okText = "Câmera: liberada", badText = "Câmera: não liberada")
+                    if (!cameraOk) {
+                        OutlinedButton(onClick = { cameraLauncher.launch(Manifest.permission.CAMERA) }, modifier = Modifier.fillMaxWidth()) {
+                            Text("Liberar câmera")
+                        }
+                    }
                 }
 
                 // ---------- Notificações ----------

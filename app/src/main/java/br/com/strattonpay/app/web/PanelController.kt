@@ -43,6 +43,8 @@ class PanelController(
     private val launchFileChooser: (Intent) -> Unit,
     /** Pede a permissão de notificação do Android e devolve se foi concedida. */
     private val requestNotificationPermission: ((Boolean) -> Unit) -> Unit,
+    /** Pede a permissão de câmera do Android e devolve se foi concedida. */
+    private val requestCameraPermission: ((Boolean) -> Unit) -> Unit,
 ) {
     private val pushStore = PushStore(activity.applicationContext)
     companion object {
@@ -170,9 +172,52 @@ class PanelController(
         webView.loadUrl(HOME_URL)
     }
 
+    /** Foto tirada pela câmera no envio de arquivo (ex.: documento). */
+    private var cameraPhoto: Uri? = null
+    private var cameraFile: java.io.File? = null
+
     fun onFileChosen(resultCode: Int, data: Intent?) {
-        fileCallback?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, data))
+        var result = WebChromeClient.FileChooserParams.parseResult(resultCode, data)
+        val photo = cameraPhoto
+        val file = cameraFile
+        if (result == null && resultCode == Activity.RESULT_OK && photo != null && file != null && file.length() > 0) {
+            result = arrayOf(photo)
+        }
+        fileCallback?.onReceiveValue(result)
         fileCallback = null
+        cameraPhoto = null
+        cameraFile = null
+    }
+
+    private fun hasCamera(): Boolean =
+        androidx.core.content.ContextCompat.checkSelfPermission(activity, android.Manifest.permission.CAMERA) ==
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    /** Arquivos + opção de tirar foto na hora. */
+    private fun chooserWithCamera(params: WebChromeClient.FileChooserParams): Intent {
+        val content = params.createIntent()
+        val wantsImage = params.acceptTypes.isEmpty() || params.acceptTypes.any { it.isBlank() || it.startsWith("image") || it == "*/*" }
+        if (!wantsImage || !hasCamera()) return content
+        return try {
+            val dir = java.io.File(activity.cacheDir, "camera").apply { mkdirs() }
+            val file = java.io.File(dir, "foto-${System.currentTimeMillis()}.jpg")
+            val uri = androidx.core.content.FileProvider.getUriForFile(activity, "${activity.packageName}.files", file)
+            cameraFile = file
+            cameraPhoto = uri
+            val camera = Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE).apply {
+                putExtra(android.provider.MediaStore.EXTRA_OUTPUT, uri)
+                addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            if (params.isCaptureEnabled) {
+                camera
+            } else {
+                Intent.createChooser(content, "Enviar arquivo").apply {
+                    putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(camera))
+                }
+            }
+        } catch (e: Exception) {
+            content
+        }
     }
 
     // ---------------------------------------------------------------
@@ -229,11 +274,29 @@ class PanelController(
             fileCallback?.onReceiveValue(null)
             fileCallback = filePathCallback
             return try {
-                launchFileChooser(fileChooserParams.createIntent())
+                launchFileChooser(chooserWithCamera(fileChooserParams))
                 true
             } catch (e: Exception) {
                 fileCallback = null
                 false
+            }
+        }
+
+        /** O painel pediu a câmera (ex.: foto de documento, leitura de QR Code). */
+        override fun onPermissionRequest(request: android.webkit.PermissionRequest) {
+            val fromPanel = isAllowedHost(request.origin.host)
+            val wantsCamera = request.resources.contains(android.webkit.PermissionRequest.RESOURCE_VIDEO_CAPTURE)
+            if (!fromPanel || !wantsCamera) {
+                request.deny()
+                return
+            }
+            val grant = { request.grant(arrayOf(android.webkit.PermissionRequest.RESOURCE_VIDEO_CAPTURE)) }
+            if (hasCamera()) {
+                grant()
+            } else {
+                activity.runOnUiThread {
+                    requestCameraPermission { ok -> if (ok) grant() else request.deny() }
+                }
             }
         }
     }

@@ -7,6 +7,11 @@ class AppSettings(context: Context) {
 
     private val prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
 
+    /** Tela de boas-vindas (permissões) já foi mostrada. Volta só se limpar os dados ou reinstalar. */
+    var onboardingDone: Boolean
+        get() = prefs.getBoolean("onboarding_done", false)
+        set(v) = prefs.edit().putBoolean("onboarding_done", v).apply()
+
     /** Receber as notificações do painel neste celular. */
     var notifyEnabled: Boolean
         get() = prefs.getBoolean("notify_enabled", true)
