@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalMaterial3Api::class, androidx.compose.ui.text.ExperimentalTextApi::class)
 
 package br.com.strattonpay.app.ui
 
@@ -68,7 +68,7 @@ fun SectionCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, Outline),
+        border = BorderStroke(1.dp, MetalBorder),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
     }
@@ -76,11 +76,27 @@ fun SectionCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.
 
 @Composable
 fun BrandMark(modifier: Modifier = Modifier, width: Dp = 260.dp) {
-    Image(
-        painter = painterResource(R.drawable.logo_full),
-        contentDescription = br.com.strattonpay.app.BuildConfig.BRAND_NAME,
-        modifier = modifier.width(width),
-    )
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(contentAlignment = Alignment.Center) {
+            BrandAura(size = width, intensity = 0.8f)
+            Image(
+                painter = painterResource(R.drawable.logo_emblem),
+                contentDescription = br.com.strattonpay.app.BuildConfig.BRAND_NAME,
+                modifier = Modifier.width(width * 0.6f),
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        Text(
+            br.com.strattonpay.app.BuildConfig.BRAND_WORDMARK,
+            style = androidx.compose.ui.text.TextStyle(
+                brush = ChromeBrush,
+                fontFamily = Inter,
+                fontWeight = FontWeight.Bold,
+                fontSize = 22.sp,
+                letterSpacing = 7.sp,
+            ),
+        )
+    }
 }
 
 @Composable

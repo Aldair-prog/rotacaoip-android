@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalMaterial3Api::class, androidx.compose.ui.text.ExperimentalTextApi::class)
 
 package br.com.strattonpay.app.ui
 
@@ -10,6 +10,22 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
@@ -66,6 +82,7 @@ fun PanelScreen(
     authenticate: (String, () -> Unit) -> Unit,
 ) {
     var showSettings by remember { mutableStateOf(false) }
+    val haptics = LocalHapticFeedback.current
     var autoLoginTried by remember { mutableStateOf(false) }
 
     // Entrar com digital: a sessão do painel caiu e há usuário/senha salvos ->
@@ -99,22 +116,35 @@ fun PanelScreen(
     Box(Modifier.fillMaxSize().background(Bg)) {
         Column(Modifier.fillMaxSize()) {
             // Barra fina com a logo
+            val barShine = rememberShine(periodMs = 7000, delayMs = 1500)
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .background(Bg)
+                    .background(Brush.verticalGradient(listOf(Color.Black, Bg)))
                     .statusBarsPadding()
-                    .height(54.dp)
-                    .padding(start = 16.dp, end = 4.dp),
+                    .height(56.dp)
+                    .padding(start = 14.dp, end = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Image(
-                    painter = painterResource(R.drawable.logo_emblem),
-                    contentDescription = null,
-                    modifier = Modifier.size(32.dp),
+                Box(contentAlignment = Alignment.Center) {
+                    BrandAura(size = 46.dp, intensity = 0.55f)
+                    Image(
+                        painter = painterResource(R.drawable.logo_emblem),
+                        contentDescription = null,
+                        modifier = Modifier.size(32.dp).shineSweep(barShine),
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    BuildConfig.BRAND_WORDMARK,
+                    style = TextStyle(
+                        brush = ChromeBrush,
+                        fontFamily = Inter,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        letterSpacing = 4.sp,
+                    ),
                 )
-                Spacer(Modifier.width(10.dp))
-                Text(BuildConfig.BRAND_WORDMARK, color = TextMain, fontWeight = FontWeight.Bold, fontSize = 16.sp, letterSpacing = 3.5.sp)
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = { panel.reload() }) {
                     Icon(Icons.Filled.Refresh, contentDescription = "Recarregar", tint = Muted)
@@ -123,16 +153,8 @@ fun PanelScreen(
                     Icon(Icons.Filled.Settings, contentDescription = "Configurações", tint = Muted)
                 }
             }
-            if (panel.progress in 1..99) {
-                LinearProgressIndicator(
-                    progress = { panel.progress / 100f },
-                    modifier = Modifier.fillMaxWidth().height(2.dp),
-                    color = BrandLight,
-                    trackColor = Bg,
-                )
-            } else {
-                HorizontalDivider(thickness = 2.dp, color = Surface1)
-            }
+            // Linha de luz: corre enquanto a página carrega, fica acesa e calma no resto do tempo.
+            EnergyLine(height = 2.dp, speedMs = 900, active = panel.progress in 1..99)
             AndroidView(
                 factory = { panel.webView },
                 modifier = Modifier.fillMaxSize().navigationBarsPadding().imePadding(),
@@ -146,14 +168,10 @@ fun PanelScreen(
             exit = fadeOut(),
             modifier = Modifier.align(Alignment.BottomCenter),
         ) {
-            ExtendedFloatingActionButton(
-                onClick = loginWithBiometric,
-                containerColor = Brand,
-                contentColor = Color.White,
-                icon = { Icon(Icons.Filled.Fingerprint, contentDescription = null) },
-                text = { Text("Entrar com digital", fontWeight = FontWeight.SemiBold) },
-                modifier = Modifier.navigationBarsPadding().padding(bottom = 24.dp),
-            )
+            BiometricButton(onClick = {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                loginWithBiometric()
+            })
         }
 
         // Abertura: logo + "Carregando..."
@@ -184,37 +202,111 @@ fun PanelScreen(
     }
 }
 
+/** Abertura: aura pulsando, reflexo passando no cromo e o nome surgindo letra por letra. */
 @Composable
 fun SplashView() {
-    Column(
-        Modifier.fillMaxSize().background(Bg).padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        BrandMark(width = 260.dp)
-        Spacer(Modifier.height(40.dp))
-        CircularProgressIndicator(color = BrandLight, strokeWidth = 3.dp, modifier = Modifier.size(32.dp))
-        Spacer(Modifier.height(14.dp))
-        Text("Carregando...", color = Muted)
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { visible = true }
+    val scale by animateFloatAsState(if (visible) 1f else 0.82f, tween(700, easing = FastOutSlowInEasing), label = "logoScale")
+    val alpha by animateFloatAsState(if (visible) 1f else 0f, tween(500), label = "logoAlpha")
+    val shine = rememberShine(periodMs = 2200, delayMs = 250)
+
+    Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color(0xFF14080B).takeIf { Brand.red > Brand.blue } ?: Color(0xFF0E0816), Color.Black)))) {
+        Column(
+            Modifier.fillMaxSize().padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                BrandAura(size = 300.dp)
+                Image(
+                    painter = painterResource(R.drawable.logo_emblem),
+                    contentDescription = BuildConfig.BRAND_NAME,
+                    modifier = Modifier
+                        .width(190.dp)
+                        .graphicsLayer {
+                            scaleX = scale
+                            scaleY = scale
+                            this.alpha = alpha
+                        }
+                        .shineSweep(shine),
+                )
+            }
+            Spacer(Modifier.height(18.dp))
+            TypewriterWordmark(BuildConfig.BRAND_WORDMARK)
+            Spacer(Modifier.height(44.dp))
+            EnergyLine(modifier = Modifier.width(180.dp), height = 2.dp)
+            Spacer(Modifier.height(12.dp))
+            Text("Carregando...", color = Muted, style = MaterialTheme.typography.labelMedium, letterSpacing = 1.5.sp)
+        }
     }
 }
 
+/** Tela de digital: aura respirando e anel de scanner girando. */
 @Composable
 fun LockScreen(onUnlock: () -> Unit) {
     LaunchedEffect(Unit) { onUnlock() }
-    Column(
-        Modifier.fillMaxSize().background(Bg).systemBarsPadding().padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+    val shine = rememberShine(periodMs = 3200, delayMs = 600)
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Brush.radialGradient(listOf(Color(0xFF14080B).takeIf { Brand.red > Brand.blue } ?: Color(0xFF0E0816), Color.Black)))
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onUnlock),
     ) {
-        BrandMark(width = 260.dp)
-        Spacer(Modifier.height(56.dp))
-        Text("Toque para desbloquear", color = Muted, style = MaterialTheme.typography.bodyMedium)
-        Spacer(Modifier.height(14.dp))
-        Button(onClick = onUnlock, modifier = Modifier.height(52.dp)) {
-            Icon(Icons.Filled.Fingerprint, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text("Desbloquear")
+        Column(
+            Modifier.fillMaxSize().systemBarsPadding().padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                BrandAura(size = 280.dp)
+                Image(
+                    painter = painterResource(R.drawable.logo_emblem),
+                    contentDescription = BuildConfig.BRAND_NAME,
+                    modifier = Modifier.width(170.dp).shineSweep(shine),
+                )
+            }
+            Spacer(Modifier.height(16.dp))
+            Text(
+                BuildConfig.BRAND_WORDMARK,
+                style = TextStyle(brush = ChromeBrush, fontFamily = Inter, fontWeight = FontWeight.Bold, fontSize = 22.sp, letterSpacing = 7.sp),
+            )
+            Spacer(Modifier.height(72.dp))
+            Box(contentAlignment = Alignment.Center) {
+                ScannerRing(size = 92.dp)
+                Box(
+                    Modifier.size(72.dp).background(Brand.copy(alpha = 0.12f), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Filled.Fingerprint, contentDescription = "Desbloquear", tint = TextMain, modifier = Modifier.size(40.dp))
+                }
+            }
+            Spacer(Modifier.height(18.dp))
+            Text("Toque para desbloquear", color = Muted, style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+/** Botão "Entrar com digital" com a borda neon dando a volta. */
+@Composable
+fun BiometricButton(onClick: () -> Unit) {
+    val t = rememberInfiniteTransition(label = "neon")
+    val angle by t.animateFloat(0f, 360f, infiniteRepeatable(tween(2400, easing = LinearEasing)), label = "neonAngle")
+    Box(
+        Modifier
+            .navigationBarsPadding()
+            .padding(bottom = 28.dp)
+            .clip(RoundedCornerShape(30.dp))
+            .background(Brush.horizontalGradient(listOf(BrandDark, Brand)))
+            .neonBorder({ angle }, radius = 30.dp, width = 2.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 26.dp, vertical = 16.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.Fingerprint, contentDescription = null, tint = Color.White)
+            Spacer(Modifier.width(10.dp))
+            Text("Entrar com digital", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
         }
     }
 }
@@ -285,6 +377,23 @@ fun SettingsScreen(store: CredentialStore, panel: PanelController, onBack: () ->
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
+                // ---------- Cabeçalho ----------
+                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(contentAlignment = Alignment.Center) {
+                        BrandAura(size = 150.dp, intensity = 0.7f)
+                        Image(
+                            painter = painterResource(R.drawable.logo_emblem),
+                            contentDescription = null,
+                            modifier = Modifier.width(84.dp).shineSweep(rememberShine(periodMs = 4200, delayMs = 800)),
+                        )
+                    }
+                    Text(
+                        BuildConfig.BRAND_WORDMARK,
+                        style = TextStyle(brush = ChromeBrush, fontFamily = Inter, fontWeight = FontWeight.Bold, fontSize = 18.sp, letterSpacing = 6.sp),
+                    )
+                    Text("versão ${BuildConfig.VERSION_NAME}", color = Muted, style = MaterialTheme.typography.labelSmall)
+                }
+
                 // ---------- Login ----------
                 SectionCard {
                     Text("Login", fontWeight = FontWeight.SemiBold)

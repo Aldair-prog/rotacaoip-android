@@ -10,7 +10,7 @@ H = lambda k, m: hmac.new(k, m, hashlib.sha256).digest()
 sub = json.load(open(sys.argv[1]))
 sub = sub.get('sub') or sub
 endpoint, ua_pub, auth = sub['endpoint'], d(sub['keys']['p256dh']), d(sub['keys']['auth'])
-payload = json.dumps({"title": "Pix recebido", "body": "R$ 10,00 de Cliente Teste", "url": "/"}).encode()
+payload = json.dumps({"title": "Pix recebido", "body": "R$ 1.250,00 de Cliente Teste", "url": "/"}).encode()
 
 as_priv = ec.generate_private_key(ec.SECP256R1())
 as_pub = as_priv.public_key().public_bytes(serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)

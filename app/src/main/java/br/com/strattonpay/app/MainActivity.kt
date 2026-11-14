@@ -6,6 +6,12 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
+import android.view.HapticFeedbackConstants
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleOut
 import android.webkit.WebView
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -87,7 +93,12 @@ class MainActivity : FragmentActivity() {
                     recentlyUnlocked = { SystemClock.elapsedRealtime() - lastAuthAt < 60_000 },
                     authenticate = { title, onOk -> authenticate(title, onOk) },
                 )
-                if (!unlocked) {
+                // Ao desbloquear, a tela de digital "abre" com zoom e some.
+                AnimatedVisibility(
+                    visible = !unlocked,
+                    enter = fadeIn(),
+                    exit = fadeOut(tween(420)) + scaleOut(tween(420), targetScale = 1.25f),
+                ) {
                     LockScreen(onUnlock = { authenticate("Desbloquear ${BuildConfig.BRAND_NAME}") { unlocked = true } })
                 }
             }
@@ -144,6 +155,9 @@ class MainActivity : FragmentActivity() {
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                     lastAuthAt = SystemClock.elapsedRealtime()
+                    window.decorView.performHapticFeedback(
+                        if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.VIRTUAL_KEY,
+                    )
                     onSuccess()
                 }
             },
