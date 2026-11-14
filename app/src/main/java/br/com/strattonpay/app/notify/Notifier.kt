@@ -143,7 +143,7 @@ object Notifier {
             val rest = body.replace(amount, "").trim(' ', '-', '·', ':', '|').replace(Regex("^(de|do|da)\\s+", RegexOption.IGNORE_CASE), "De ")
             val view = RemoteViews(context.packageName, R.layout.notification_pix).apply {
                 setTextViewText(R.id.n_label, label)
-                setTextViewText(R.id.n_amount, amount.replace(Regex("""R\$\s?"""), "R$ "))
+                setTextViewText(R.id.n_amount, "R$ " + amount.substringAfter("R$").trim())
                 setTextViewText(R.id.n_body, rest)
             }
             builder
