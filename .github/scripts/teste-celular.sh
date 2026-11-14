@@ -19,7 +19,7 @@ sleep 60
 adb logcat -c
 
 echo "== Tempo de abertura (frio)"
-adb shell am start -W -n "$PKG/.MainActivity" | tee "$OUT/tempo-abertura.txt"
+adb shell am start -W -n "$PKG/br.com.strattonpay.app.MainActivity" | tee "$OUT/tempo-abertura.txt"
 sleep 1
 shot 01-abertura
 
@@ -60,7 +60,7 @@ adb shell input keyevent 4
 sleep 1
 
 echo "== Configuração inicial (forçada pelo teste)"
-adb shell am start -n "$PKG/.MainActivity" --ez test_setup true
+adb shell am start -n "$PKG/br.com.strattonpay.app.MainActivity" --ez test_setup true
 sleep 3
 shot 06-configuracao-inicial
 adb shell input keyevent 4
@@ -79,7 +79,7 @@ ls -la saida/*.apk > "$OUT/tamanho-apk.txt"
 echo "== Reabrindo (morno) para medir"
 adb shell input keyevent 3
 sleep 2
-adb shell am start -W -n "$PKG/.MainActivity" | tee -a "$OUT/tempo-abertura.txt"
+adb shell am start -W -n "$PKG/br.com.strattonpay.app.MainActivity" | tee -a "$OUT/tempo-abertura.txt"
 
 echo "== Erros"
 adb logcat -d > "$OUT/logcat.txt"
