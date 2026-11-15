@@ -74,6 +74,7 @@ module.exports = {
     plugins: [
       'expo-router',
       'expo-secure-store',
+      'expo-sharing',
       [
         'expo-notifications',
         { icon: `${dir}/notification-icon.png`, color: b.color, sounds: [`${dir}/${b.sound}`] },
