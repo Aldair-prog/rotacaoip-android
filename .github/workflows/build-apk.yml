@@ -79,7 +79,7 @@ jobs:
           target_commitish: ${{ github.sha }}
           prerelease: true
           make_latest: false
-          body: "Stratton.apk e ConnectPay.apk. Baixe o do seu app e instale no Android (atualiza por cima da versão anterior)."
+          body: ${{ github.event.head_commit.message }}
           files: |
             saida/Stratton.apk
             saida/ConnectPay.apk
