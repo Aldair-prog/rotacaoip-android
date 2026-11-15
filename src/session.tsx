@@ -6,6 +6,7 @@ import * as Crypto from 'expo-crypto';
 import { api, auth, Company, getSession, onAuthChange, Session, setDevice, setSession, SignInResult } from './lib/api';
 import { BRAND } from './brand';
 import { unregisterPush } from './lib/notify';
+import { E2E } from './e2e';
 
 const K = {
   refresh: 'cp_refresh_token',
@@ -272,7 +273,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       signIn,
       verifyOtp,
       signOut,
-      testSignIn: () => setStatus('signedIn'),
+      testSignIn: () => {
+        if (E2E) setStatus('signedIn');
+      },
       unlock,
       confirmIdentity,
       setBiometricEnabled,

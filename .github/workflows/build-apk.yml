@@ -50,12 +50,15 @@ jobs:
 
       - name: Compilar APK (celulares 64 bits, mais leve)
         run: |
+          echo "export const E2E = false;" > src/e2e.ts
           cd android
           ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon --stacktrace
           cp app/build/outputs/apk/release/app-release.apk ../saida/app-celular.apk
 
       - name: Compilar APK de teste (emulador)
         run: |
+          # só o APK do emulador liga as telas técnicas de teste
+          echo "export const E2E = true;" > src/e2e.ts
           cd android
           ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
           cp app/build/outputs/apk/release/app-release.apk ../saida/app-emulador.apk

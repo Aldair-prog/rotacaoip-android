@@ -6,12 +6,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { impact } from '../src/components/ui';
 import { C } from '../src/theme';
+import { isTrusted } from '../src/lib/docs';
+
+// Só abre páginas das próprias marcas (um link de fora não consegue se passar pelo app)
+const ALLOWED = /^https:\/\/([a-z0-9-]+\.)*(connectmdcpay\.com\.br|strattonpay\.com\.br)(\/|$)/i;
 
 /** Abre PDFs (Termos, Política de privacidade) dentro do app, com X no canto superior direito */
 export default function Documento() {
   const { url, title } = useLocalSearchParams<{ url: string; title?: string }>();
   const ins = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
+  const safe = ALLOWED.test(String(url ?? '')) || isTrusted(String(url ?? ''));
 
   return (
     <View style={{ flex: 1, backgroundColor: '#fff' }}>
@@ -31,14 +36,24 @@ export default function Documento() {
           <Ionicons name="close" size={22} color="#fff" />
         </Pressable>
       </View>
+      {!safe ? (
+        <View style={st.blocked}>
+          <Ionicons name="shield-checkmark" size={42} color={C.red} />
+          <Text style={st.blockedTitle}>Link bloqueado</Text>
+          <Text style={st.blockedText}>Por segurança, o app só abre páginas oficiais.</Text>
+        </View>
+      ) : (
       <WebView
         source={{ uri: String(url) }}
         style={{ flex: 1, backgroundColor: '#fff' }}
         onLoadEnd={() => setLoading(false)}
         originWhitelist={['https://*']}
         pullToRefreshEnabled
+        setSupportMultipleWindows={false}
+        onShouldStartLoadWithRequest={(req: any) => /^(https:|about:|blob:)/i.test(req.url)}
       />
-      {loading ? (
+      )}
+      {loading && safe ? (
         <View style={st.loading} pointerEvents="none">
           <ActivityIndicator color={C.red} />
         </View>
@@ -48,6 +63,9 @@ export default function Documento() {
 }
 
 const st = StyleSheet.create({
+  blocked: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30, backgroundColor: C.bg },
+  blockedTitle: { color: C.text, fontSize: 20, fontWeight: '800', marginTop: 14 },
+  blockedText: { color: C.muted, fontSize: 15, marginTop: 8, textAlign: 'center' },
   bar: {
     flexDirection: 'row',
     alignItems: 'center',

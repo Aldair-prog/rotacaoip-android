@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
@@ -77,6 +77,24 @@ function Gate() {
       {signedIn && locked ? <LockScreen /> : null}
       {signedIn && !locked && !appActive ? <PrivacyShield /> : null}
       {intro ? <Intro done={!loading} onFinish={endIntro} /> : null}
+    </View>
+  );
+}
+
+/** Se alguma tela der erro, mostra isto em vez de fechar o app */
+export function ErrorBoundary({ retry }: { error: Error; retry: () => Promise<void> }) {
+  return (
+    <View style={{ flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center', padding: 30 }}>
+      <Text style={{ color: C.text, fontSize: 22, fontWeight: '800', textAlign: 'center' }}>Algo não saiu como esperado</Text>
+      <Text style={{ color: C.muted, fontSize: 15, marginTop: 10, textAlign: 'center' }}>
+        Seus dados estão seguros. Toque abaixo para continuar.
+      </Text>
+      <Pressable
+        onPress={() => retry()}
+        style={({ pressed }) => ({ marginTop: 24, backgroundColor: C.red, borderRadius: 30, paddingVertical: 14, paddingHorizontal: 34, opacity: pressed ? 0.8 : 1 })}
+      >
+        <Text style={{ color: '#fff', fontSize: 16, fontWeight: '800' }}>Tentar de novo</Text>
+      </Pressable>
     </View>
   );
 }

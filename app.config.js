@@ -49,6 +49,18 @@ module.exports = {
       buildNumber: String(BUILD),
       supportsTablet: false,
       config: { usesNonExemptEncryption: false },
+      // Manifesto de privacidade exigido pela Apple (APIs usadas pelo React Native/Expo e sem rastreamento)
+      privacyManifests: {
+        NSPrivacyTracking: false,
+        NSPrivacyTrackingDomains: [],
+        NSPrivacyCollectedDataTypes: [],
+        NSPrivacyAccessedAPITypes: [
+          { NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategoryUserDefaults', NSPrivacyAccessedAPITypeReasons: ['CA92.1'] },
+          { NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategoryFileTimestamp', NSPrivacyAccessedAPITypeReasons: ['0A2A.1', '3B52.1', 'C617.1'] },
+          { NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategoryDiskSpace', NSPrivacyAccessedAPITypeReasons: ['E174.1', '85F4.1'] },
+          { NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategorySystemBootTime', NSPrivacyAccessedAPITypeReasons: ['35F9.1'] },
+        ],
+      },
       infoPlist: {
         CFBundleDevelopmentRegion: 'pt-BR',
         CFBundleLocalizations: ['pt-BR'],
@@ -89,6 +101,10 @@ module.exports = {
         'expo-build-properties',
         {
           android: {
+            // exigência da Play Store desde 31/08/2026: mirar o Android 16 (API 36)
+            compileSdkVersion: 36,
+            targetSdkVersion: 36,
+            usesCleartextTraffic: false,
             enableMinifyInReleaseBuilds: true,
             enableShrinkResourcesInReleaseBuilds: true,
             // regras para o otimizador não apagar o que o push nativo usa (WorkManager/Room e o cofre criptografado)

@@ -12,6 +12,7 @@ import { C } from '../../src/theme';
 import { notificationsEnabled, sendTestNotification, setNotificationsEnabled } from '../../src/lib/notify';
 import { BRAND, A, LOGO, SETTINGS_PATH, DEVICE, BIO_ICON } from '../../src/brand';
 import { BackgroundRow } from '../../src/components/BackgroundRow';
+import { openDoc } from '../../src/lib/docs';
 
 
 export default function Conta() {
@@ -25,6 +26,7 @@ export default function Conta() {
     setHideValues,
     signOut,
     refreshCompany,
+    lastEmail,
   } = useSession();
 
   const [cfg, setCfg] = useState<TenantSettings | null>(null);
@@ -157,13 +159,13 @@ export default function Conta() {
           icon="document-text"
           title="Termos de uso"
           right={<Ionicons name="chevron-forward" size={18} color={C.dim} />}
-          onPress={() => terms && router.push({ pathname: '/documento', params: { url: terms, title: 'Termos de uso' } })}
+          onPress={() => terms && openDoc(terms, 'Termos de uso')}
         />
         <Row
           icon="lock-closed"
           title="Política de privacidade"
           right={<Ionicons name="chevron-forward" size={18} color={C.dim} />}
-          onPress={() => privacy && router.push({ pathname: '/documento', params: { url: privacy, title: 'Política de privacidade' } })}
+          onPress={() => privacy && openDoc(privacy, 'Política de privacidade')}
         />
         <Row
           icon="logo-whatsapp"
@@ -178,6 +180,30 @@ export default function Conta() {
       </Card>
 
       <Button title="Desconectar conta" icon="log-out-outline" variant="danger" onPress={logout} style={{ marginTop: 26 }} />
+      <Text
+        style={st.delete}
+        onPress={() =>
+          Alert.alert(
+            'Excluir minha conta',
+            `A exclusão é feita pela equipe ${BRAND.name}, depois de zerar o saldo e conferir as operações (exigência para contas de pagamento). Vamos abrir o suporte com o pedido pronto.`,
+            [
+              { text: 'Cancelar', style: 'cancel' },
+              {
+                text: 'Pedir exclusão',
+                style: 'destructive',
+                onPress: () => {
+                  const msg = encodeURIComponent(`Olá! Quero excluir minha conta ${BRAND.name}. E-mail: ${lastEmail || ''}`);
+                  const base = BRAND.support ?? wa;
+                  if (base) Linking.openURL(`${base}?text=${msg}`).catch(() => {});
+                  else openDoc(BRAND.contact, 'Suporte');
+                },
+              },
+            ]
+          )
+        }
+      >
+        Excluir minha conta
+      </Text>
       <Text style={st.foot}>{cfg?.slogan ? cfg.slogan : BRAND.slogan}</Text>
       <Text style={st.copy}>© {new Date().getFullYear()} {BRAND.copyright}{'\n'}Todos os direitos reservados</Text>
     </Screen>
@@ -201,6 +227,7 @@ const st = StyleSheet.create({
   legal: { color: C.muted, fontSize: 13, marginTop: 3, textAlign: 'center' },
   doc: { color: C.sub, fontSize: 14, marginTop: 6 },
   fee: { color: C.sub, fontSize: 14, fontWeight: '600' },
+  delete: { color: C.dim, textAlign: 'center', marginTop: 18, fontSize: 13.5, fontWeight: '600', textDecorationLine: 'underline' },
   foot: { color: C.dim, textAlign: 'center', marginTop: 22, fontSize: 12, letterSpacing: 0.5 },
   copy: { color: C.dim, textAlign: 'center', marginTop: 8, fontSize: 10.5, lineHeight: 15, letterSpacing: 0.6, opacity: 0.8 },
 });

@@ -12,6 +12,7 @@ import { C } from '../src/theme';
 import { BRAND, LOGO, PANEL_URL } from '../src/brand';
 import { BrandLogo } from '../src/components/Intro';
 import { router } from 'expo-router';
+import { openDoc } from '../src/lib/docs';
 
 const WEB = PANEL_URL;
 type Step = 'email' | 'password' | 'otp';
@@ -170,7 +171,7 @@ export default function Login() {
 
   const openPage = (path: string, title: string) => {
     tap();
-    router.push({ pathname: '/documento', params: { url: `${WEB}${path}`, title } });
+    openDoc(`${WEB}${path}`, title);
   };
   const canSubmit = emailOk && !!password;
 

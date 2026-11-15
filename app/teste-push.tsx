@@ -2,9 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { AppPush } from '../modules/app-push';
 import { C } from '../src/theme';
+import { Redirect } from 'expo-router';
+import { E2E } from '../src/e2e';
 
 // Tela técnica usada só no teste automático do Android (abre por link e confere o push nativo)
 export default function TestePush() {
+  // Só existe no APK de teste do emulador
+  return E2E ? <Teste /> : <Redirect href="/" />;
+}
+
+function Teste() {
   const [msg, setMsg] = useState('testando...');
   useEffect(() => {
     (async () => {

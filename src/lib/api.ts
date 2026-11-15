@@ -75,10 +75,24 @@ function baseHeaders(): Record<string, string> {
 
 async function raw(path: string, init: RequestInit): Promise<{ res: Response; data: any }> {
   let res: Response;
+  // Nunca deixa a tela carregando para sempre: consulta 20s, envio de dinheiro 45s
+  const write = !!init.method && init.method.toUpperCase() !== 'GET';
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), write ? 45_000 : 20_000);
   try {
-    res = await fetch(`${API_BASE}${path}`, init);
-  } catch {
+    res = await fetch(`${API_BASE}${path}`, { ...init, signal: ctrl.signal });
+  } catch (e: any) {
+    if (e?.name === 'AbortError') {
+      throw new ApiError(
+        write
+          ? 'O servidor demorou para responder. Confira no extrato se a operação foi feita antes de tentar de novo.'
+          : 'O servidor demorou para responder. Tente de novo.',
+        0
+      );
+    }
     throw new ApiError('Sem conexão com a internet.', 0);
+  } finally {
+    clearTimeout(timer);
   }
   const text = await res.text();
   let data: any = null;

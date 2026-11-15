@@ -9,6 +9,7 @@ import { C } from '../src/theme';
 import { adoptRefreshToken, getDevice, getSession, setPanelOpen } from '../src/lib/api';
 import { useSession } from '../src/session';
 import { BRAND, LOGO } from '../src/brand';
+import { openDoc } from '../src/lib/docs';
 
 // Algumas opções são só do iPhone e não estão nos tipos do pacote
 const WebViewAny = WebView as any;
@@ -146,7 +147,7 @@ export default function Admin() {
           // Fica no painel; outros sites abrem dentro do app; WhatsApp, telefone e e-mail abrem no app certo
           if (req.url.startsWith('about:') || req.url.startsWith('blob:') || req.url.includes(HOST)) return true;
           if (/^https?:/i.test(req.url) && !/wa\.me|whatsapp\.com/i.test(req.url)) {
-            router.push({ pathname: '/documento', params: { url: req.url, title: 'Página' } });
+            openDoc(req.url, 'Página');
           } else {
             Linking.openURL(req.url).catch(() => {});
           }
