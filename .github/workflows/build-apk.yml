@@ -137,8 +137,15 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: bash .github/scripts/teste-app.sh
-      - uses: actions/upload-artifact@v4
+      - name: Juntar resultados
+        if: always()
+        run: tar czf resultados.tgz resultados || true
+      - uses: softprops/action-gh-release@v2
         if: always()
         with:
-          name: resultados-teste
-          path: resultados/
+          tag_name: stratton-testes-${{ github.run_number }}
+          name: Testes no emulador (build ${{ github.run_number }})
+          target_commitish: ${{ github.sha }}
+          prerelease: true
+          make_latest: false
+          files: resultados.tgz
