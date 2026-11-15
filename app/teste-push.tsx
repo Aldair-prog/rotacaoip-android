@@ -9,12 +9,13 @@ export default function TestePush() {
   useEffect(() => {
     (async () => {
       try {
-        if (!AppPush) return setMsg('PUSH: sem modulo');
-        const sub = AppPush.getSubscription();
-        AppPush.notify('Pix recebido R$ 10,00', 'De TESTE AUTOMATICO');
-        AppPush.setSubscribed(true);
-        const ok = await AppPush.sendTest();
-        setTimeout(() => AppPush.setSubscribed(false), 8000);
+        const P = AppPush;
+        if (!P) return setMsg('PUSH: sem modulo');
+        const sub = P.getSubscription();
+        P.notify('Pix recebido R$ 10,00', 'De TESTE AUTOMATICO');
+        P.setSubscribed(true);
+        const ok = await P.sendTest();
+        setTimeout(() => P.setSubscribed(false), 8000);
         setMsg(`PUSH OK ${sub.endpoint.startsWith('https://ntfy.sh/') ? 'endpoint' : 'sem-endpoint'} teste=${ok}`);
       } catch (e: any) {
         setMsg('PUSH ERRO ' + String(e?.message ?? e));

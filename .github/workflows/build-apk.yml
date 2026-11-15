@@ -41,7 +41,9 @@ jobs:
           mkdir -p saida && cp package.json saida/package-resolvido.json
 
       - name: Conferir o código (TypeScript)
-        run: npx tsc --noEmit 2>&1 | tee saida/typescript.txt
+        run: |
+          set -o pipefail
+          npx tsc --noEmit 2>&1 | tee saida/typescript.txt
 
       - name: Gerar projeto Android
         run: npx expo prebuild -p android --no-install --clean
