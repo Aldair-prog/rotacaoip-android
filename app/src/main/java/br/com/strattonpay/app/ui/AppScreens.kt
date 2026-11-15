@@ -67,9 +67,6 @@ import br.com.strattonpay.app.notify.Notifier
 import br.com.strattonpay.app.push.PushService
 import br.com.strattonpay.app.push.PushStore
 import androidx.compose.foundation.shape.CircleShape
-import br.com.strattonpay.app.update.UpdateDialog
-import br.com.strattonpay.app.update.UpdateState
-import br.com.strattonpay.app.update.rememberUpdateState
 import br.com.strattonpay.app.web.PanelController
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -91,17 +88,6 @@ fun PanelScreen(
     var showSettings by remember { mutableStateOf(false) }
     val haptics = LocalHapticFeedback.current
     var bioLoginOn by remember { mutableStateOf(store.biometricLoginEnabled) }
-
-    // Atualização sem Play Store: procura versão nova ao abrir (no máximo a cada 6 h).
-    val context = LocalContext.current
-    val updates = rememberUpdateState()
-    LaunchedEffect(unlocked) {
-        val s = AppSettings(context)
-        if (unlocked && s.autoUpdate && System.currentTimeMillis() - s.lastUpdateCheck > 6 * 60 * 60 * 1000L) {
-            delay(5000)
-            updates.check(context, manual = false)
-        }
-    }
     LaunchedEffect(showSettings) {
         bioLoginOn = store.biometricLoginEnabled
         panel.biometricLogin = biometricAvailable && bioLoginOn
@@ -219,10 +205,8 @@ fun PanelScreen(
         }
 
         if (showSettings) {
-            SettingsScreen(store = store, panel = panel, updates = updates, onBack = { showSettings = false })
+            SettingsScreen(store = store, panel = panel, onBack = { showSettings = false })
         }
-
-        if (unlocked) UpdateDialog(updates)
 
     }
 }
@@ -489,7 +473,7 @@ private fun openBatterySettings(context: android.content.Context) {
 
 
 @Composable
-fun SettingsScreen(store: CredentialStore, panel: PanelController, updates: UpdateState, onBack: () -> Unit) {
+fun SettingsScreen(store: CredentialStore, panel: PanelController, onBack: () -> Unit) {
     val context = LocalContext.current
     val settings = remember { AppSettings(context) }
 
@@ -682,35 +666,6 @@ fun SettingsScreen(store: CredentialStore, panel: PanelController, updates: Upda
                     )
                     OutlinedButton(onClick = { openBatterySettings(context) }, modifier = Modifier.fillMaxWidth()) {
                         Text("Liberar uso de bateria")
-                    }
-                }
-
-                // ---------- Atualizações ----------
-                SectionCard {
-                    Text("Atualizações", fontWeight = FontWeight.SemiBold)
-                    Text(
-                        "O app se atualiza sozinho, sem Play Store: quando sair versão nova, ele avisa, baixa e instala por cima.",
-                        color = Muted,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    StatusLine(ok = true, okText = "Versão instalada: ${BuildConfig.VERSION_NAME}", badText = "")
-                    var autoUpd by remember { mutableStateOf(settings.autoUpdate) }
-                    SwitchRow("Procurar ao abrir o app", "Avisa quando houver versão nova", autoUpd) {
-                        autoUpd = it
-                        settings.autoUpdate = it
-                    }
-                    OutlinedButton(
-                        onClick = { scope.launch { updates.check(context, manual = true) } },
-                        enabled = !updates.checking,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text(if (updates.checking) "Procurando…" else "Procurar atualização agora") }
-                    if (!updates.showDialog) {
-                        updates.message?.let { Text(it, color = Muted, style = MaterialTheme.typography.bodySmall) }
-                    }
-                    updates.release?.let { rel ->
-                        if (!updates.showDialog) {
-                            PrimaryButton("Instalar versão ${rel.version}", onClick = { updates.showDialog = true })
-                        }
                     }
                 }
 

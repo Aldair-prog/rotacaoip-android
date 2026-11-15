@@ -33,8 +33,8 @@ object Notifier {
     /** Endereço do painel para abrir ao tocar na notificação. */
     const val EXTRA_URL = "open_url"
 
-    // Canal novo (v2): canal com som próprio não pode ser alterado depois de criado.
-    private const val CH_PANEL = "panel_v2"
+    // Canal novo (v3): o som de um canal não muda depois de criado, então troca o canal.
+    private const val CH_PANEL = "panel_v3"
     private const val GROUP = "panel_group"
     private val VIBRATION = longArrayOf(0, 60, 70, 140)
 
@@ -46,7 +46,7 @@ object Notifier {
 
     fun ensureChannels(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
-        nm.deleteNotificationChannel("panel") // canal antigo, sem som próprio
+        listOf("panel", "panel_v2").forEach { nm.deleteNotificationChannel(it) } // canais antigos
         if (nm.getNotificationChannel(CH_PANEL) != null) return
         val sound = Uri.parse("${ContentResolver.SCHEME_ANDROID_RESOURCE}://${context.packageName}/${R.raw.pix_chime}")
         nm.createNotificationChannel(

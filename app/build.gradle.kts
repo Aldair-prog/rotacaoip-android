@@ -19,8 +19,6 @@ android {
 
     // Um código, dois apps: cada marca com nome, site, cores e logos próprios.
     flavorDimensions += "marca"
-    // Onde ficam as versões novas (atualização dentro do app, sem Play Store).
-    defaultConfig.buildConfigField("String", "UPDATE_REPO", "\"Aldair-prog/rotacaoip-android\"")
     productFlavors {
         create("stratton") {
             dimension = "marca"
@@ -29,7 +27,6 @@ android {
             buildConfigField("String", "BRAND_NAME", "\"Stratton\"")
             buildConfigField("String", "BRAND_WORDMARK", "\"STRATTON\"")
             buildConfigField("String", "COPYRIGHT_HOLDER", "\"OPERAÇÕES DIGITAIS - STRATTON\"")
-            buildConfigField("String", "UPDATE_ASSET", "\"Stratton.apk\"")
             buildConfigField("String", "PANEL_URL", "\"https://app.strattonpay.com.br/\"")
             buildConfigField("String", "PANEL_DOMAIN", "\"strattonpay.com.br\"")
             buildConfigField("String", "API_BASE", "\"https://app.strattonpay.com.br/api/v1\"")
@@ -41,7 +38,6 @@ android {
             buildConfigField("String", "BRAND_NAME", "\"Connect Pay\"")
             buildConfigField("String", "BRAND_WORDMARK", "\"CONNECT PAY\"")
             buildConfigField("String", "COPYRIGHT_HOLDER", "\"OPERAÇÕES DIGITAIS - CONNECT PAY\"")
-            buildConfigField("String", "UPDATE_ASSET", "\"ConnectPay.apk\"")
             buildConfigField("String", "PANEL_URL", "\"https://app.connectmdcpay.com.br/\"")
             buildConfigField("String", "PANEL_DOMAIN", "\"connectmdcpay.com.br\"")
             buildConfigField("String", "API_BASE", "\"https://app.connectmdcpay.com.br/api/v1\"")

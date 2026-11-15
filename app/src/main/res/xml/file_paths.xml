@@ -2,6 +2,4 @@
 <paths>
     <!-- Fotos tiradas pela câmera para enviar no painel -->
     <cache-path name="camera" path="camera/" />
-    <!-- Versão nova do app baixada para atualizar -->
-    <cache-path name="updates" path="updates/" />
 </paths>
