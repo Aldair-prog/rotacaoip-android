@@ -95,7 +95,17 @@ export default function Saque() {
   const dest = isQr ? w?.description || 'QR Code Pix' : displayKey(w?.pix_key ?? '', w?.pix_key_type ?? null);
 
   return (
-    <Screen bottomPad={40}>
+    <Screen
+      bottomPad={40}
+      onRefresh={async () => {
+        try {
+          setW(await api.withdrawById(id));
+          setError(null);
+        } catch (e) {
+          setError(e instanceof ApiError ? e.message : 'Não foi possível consultar o envio.');
+        }
+      }}
+    >
       <View style={st.top}>
         <IconButton icon="close" label="Fechar" onPress={() => router.back()} />
         <Text style={st.topTitle}>{isQr ? 'Pagamento QR Code' : 'Pix enviado'}</Text>

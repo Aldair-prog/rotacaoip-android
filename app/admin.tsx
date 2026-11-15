@@ -132,7 +132,6 @@ export default function Admin() {
         sharedCookiesEnabled
         domStorageEnabled
         javaScriptEnabled
-        allowsBackForwardNavigationGestures
         bounces
         pullToRefreshEnabled
         refreshControlLightMode

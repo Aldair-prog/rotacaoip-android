@@ -36,6 +36,7 @@ export default function Documento() {
         style={{ flex: 1, backgroundColor: '#fff' }}
         onLoadEnd={() => setLoading(false)}
         originWhitelist={['https://*']}
+        pullToRefreshEnabled
       />
       {loading ? (
         <View style={st.loading} pointerEvents="none">

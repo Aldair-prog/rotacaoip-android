@@ -49,15 +49,25 @@ function Gate() {
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       {loading ? null : (
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.bg } }}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: C.bg },
+          // arrastar da esquerda para a direita (em qualquer parte da tela) volta para a tela anterior
+          animation: 'slide_from_right',
+          gestureEnabled: true,
+          fullScreenGestureEnabled: true,
+        }}
+      >
         <Stack.Protected guard={signedIn}>
           <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="cobranca/[id]" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="saque/[id]" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="pagar-qr" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="admin" options={{ presentation: 'fullScreenModal' }} />
-          <Stack.Screen name="documento" options={{ presentation: 'fullScreenModal' }} />
-          <Stack.Screen name="avisos" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="cobranca/[id]" />
+          <Stack.Screen name="saque/[id]" />
+          <Stack.Screen name="pagar-qr" />
+          {/* painel web: só arrastar da borda esquerda, para não brigar com a rolagem da página */}
+          <Stack.Screen name="admin" options={{ fullScreenGestureEnabled: false }} />
+          <Stack.Screen name="documento" />
+          <Stack.Screen name="avisos" />
         </Stack.Protected>
         <Stack.Protected guard={!signedIn}>
           <Stack.Screen name="login" options={{ animation: 'fade' }} />

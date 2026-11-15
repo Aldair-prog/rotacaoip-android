@@ -75,7 +75,17 @@ export default function Cobranca() {
   };
 
   return (
-    <Screen bottomPad={40}>
+    <Screen
+      bottomPad={40}
+      onRefresh={async () => {
+        try {
+          setTx(await api.transaction(id));
+          setError(null);
+        } catch (e) {
+          setError(e instanceof ApiError ? e.message : 'Não foi possível consultar a cobrança.');
+        }
+      }}
+    >
       <View style={st.top}>
         <IconButton icon="close" label="Fechar" onPress={() => router.back()} />
         <Text style={st.topTitle}>Cobrança Pix</Text>
