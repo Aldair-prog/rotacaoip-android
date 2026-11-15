@@ -59,9 +59,10 @@ export function BrandLogo({ size = 132, rings = true }: { size?: number; rings?:
           { width: ring * 1.25, height: ring * 1.25, borderRadius: ring, opacity: auraOpacity, transform: [{ scale: auraScale }] },
         ]}
       >
-        <View style={[st.auraIn, { borderRadius: ring, backgroundColor: A(0.1) }]} />
-        <View style={[st.auraIn, { margin: ring * 0.16, borderRadius: ring, backgroundColor: A(0.14) }]} />
-        <View style={[st.auraIn, { margin: ring * 0.3, borderRadius: ring, backgroundColor: A(0.2) }]} />
+        {/* várias camadas bem fracas = brilho suave, sem borda dura */}
+        {[0, 0.06, 0.12, 0.18, 0.24, 0.3, 0.36].map((m) => (
+          <View key={m} style={[st.auraIn, { margin: ring * m, borderRadius: ring, backgroundColor: A(0.045) }]} />
+        ))}
       </Animated.View>
 
       {rings ? (

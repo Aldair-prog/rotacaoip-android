@@ -175,8 +175,8 @@ export default function Login() {
         <View style={[st.progressFill, { width: step === 'email' ? '33%' : step === 'password' ? '66%' : '100%' }]} />
       </View>
 
-      {/* logo com aura e anéis girando (o espaço extra dos anéis é compensado na margem) */}
-      <View style={{ marginLeft: -21, marginTop: -14, marginBottom: -14, alignSelf: 'flex-start' }}>
+      {/* logo com aura e anéis girando, no centro */}
+      <View style={{ marginTop: -6, marginBottom: -10, alignSelf: 'center' }}>
         <BrandLogo size={78} />
       </View>
 
