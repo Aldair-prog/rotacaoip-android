@@ -78,6 +78,8 @@ jobs:
             echo "signed=false" >> "$GITHUB_OUTPUT"
           fi
           "$BT/apksigner" verify --print-certs saida/app-celular.apk | head -3
+          # o push nativo do Android (sem Firebase) precisa estar dentro do APK
+          unzip -p saida/app-celular.apk 'classes*.dex' | strings | grep -q "ntfy.sh" || { echo "::error::Módulo de push ficou fora do APK"; exit 1; }
           mv saida/app-celular.apk "saida/$NAME.apk"
           mv saida/app-emulador.apk "saida/$NAME-emulador.apk"
           ls -la saida

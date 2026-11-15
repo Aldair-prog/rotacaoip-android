@@ -143,9 +143,13 @@ export default function Admin() {
         setSupportMultipleWindows={false}
         onLoadProgress={(e: any) => setProgress(e.nativeEvent.progress)}
         onShouldStartLoadWithRequest={(req: any) => {
-          // Fica no painel; links externos (WhatsApp, PDFs de outros sites) abrem fora
+          // Fica no painel; outros sites abrem dentro do app; WhatsApp, telefone e e-mail abrem no app certo
           if (req.url.startsWith('about:') || req.url.startsWith('blob:') || req.url.includes(HOST)) return true;
-          Linking.openURL(req.url).catch(() => {});
+          if (/^https?:/i.test(req.url) && !/wa\.me|whatsapp\.com/i.test(req.url)) {
+            router.push({ pathname: '/documento', params: { url: req.url, title: 'Página' } });
+          } else {
+            Linking.openURL(req.url).catch(() => {});
+          }
           return false;
         }}
         startInLoadingState

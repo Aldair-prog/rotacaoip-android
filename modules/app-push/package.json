@@ -1,0 +1,8 @@
+{
+  "name": "app-push",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Push do Android sem Firebase (Web Push do painel via ntfy)",
+  "main": "index.ts",
+  "types": "index.ts"
+}

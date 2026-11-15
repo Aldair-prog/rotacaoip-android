@@ -36,6 +36,8 @@ if (AppPush) {
  */
 export async function registerPush(): Promise<boolean> {
   if (ANDROID) return registerAndroid();
+  // Android sem o módulo de push (ex.: teste no Expo Go): não tenta o push do Google, que derruba o app sem Firebase
+  if (Platform.OS === 'android') return false;
   try {
     if (!RELAY) return false;
     const projectId =

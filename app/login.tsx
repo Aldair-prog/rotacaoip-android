@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
@@ -11,6 +11,7 @@ import { ApiError } from '../src/lib/api';
 import { C } from '../src/theme';
 import { BRAND, LOGO, PANEL_URL } from '../src/brand';
 import { BrandLogo } from '../src/components/Intro';
+import { router } from 'expo-router';
 
 const WEB = PANEL_URL;
 type Step = 'email' | 'password' | 'otp';
@@ -74,12 +75,11 @@ export default function Login() {
       setPassword(v.password);
       setRemember(true);
       setHasSaved(true);
-      setStep('password');
     });
   }, []);
 
+  // O teclado só abre no código de verificação (lá o cliente sempre vai digitar)
   useEffect(() => {
-    if (step === 'password' && !hasSaved) setTimeout(() => passRef.current?.focus(), 250);
     if (step === 'otp') setTimeout(() => codeRef.current?.focus(), 250);
   }, [step]);
 
@@ -168,32 +168,35 @@ export default function Login() {
 
   const initials = email.trim().slice(0, 2).toUpperCase();
 
+  const openPage = (path: string, title: string) => {
+    tap();
+    router.push({ pathname: '/documento', params: { url: `${WEB}${path}`, title } });
+  };
+  const canSubmit = emailOk && !!password;
+
   return (
     <Screen bottomPad={40}>
-      {/* Barra de progresso igual ao painel */}
+      {/* Barra de progresso: entrar → código de verificação */}
       <View style={st.progress}>
-        <View style={[st.progressFill, { width: step === 'email' ? '33%' : step === 'password' ? '66%' : '100%' }]} />
+        <View style={[st.progressFill, { width: step === 'otp' ? '100%' : canSubmit ? '50%' : '25%' }]} />
       </View>
 
-      {/* logo com aura e anéis girando, no centro */}
-      <View style={{ marginTop: -6, marginBottom: -10, alignSelf: 'center' }}>
-        <BrandLogo size={78} />
-      </View>
-
-      {step === 'email' && (
+      {step !== 'otp' && (
         <>
-          <Text style={st.title}>Entrar</Text>
-          <Text style={st.sub}>
-            Novo usuário?{' '}
-            <Text style={st.link} onPress={() => Linking.openURL(`${WEB}/sign-up`)}>
-              Crie uma conta
-            </Text>
-          </Text>
+          {/* Logo grande e animada no topo */}
+          <View style={st.hero}>
+            <BrandLogo size={104} />
+            <Text style={st.welcome}>Bem-vindo</Text>
+            <Text style={st.welcomeSub}>Acesse sua conta {BRAND.name}</Text>
+          </View>
 
-          <Field label="Endereço de e-mail" focusedDefault>
+          <Field label="E-mail" icon="mail-outline">
             <TextInput
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(v) => {
+                setEmail(v);
+                setError(null);
+              }}
               placeholder="voce@email.com"
               placeholderTextColor={C.dim}
               autoCapitalize="none"
@@ -202,43 +205,28 @@ export default function Login() {
               keyboardType="email-address"
               textContentType="username"
               returnKeyType="next"
-              onSubmitEditing={goPassword}
+              onSubmitEditing={() => passRef.current?.focus()}
               style={st.input}
-              autoFocus={!email}
             />
           </Field>
 
-          <View style={{ alignItems: 'flex-end', marginTop: 18 }}>
-            <PillButton title="Continuar" icon="arrow-forward" onPress={goPassword} disabled={!emailOk} />
-          </View>
-        </>
-      )}
-
-      {step === 'password' && (
-        <>
-          <Text style={st.title}>Insira sua senha</Text>
-          <Pressable onPress={back} style={st.user}>
-            <LinearGradient colors={[C.red, BRAND.accent2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={st.avatar}>
-              <Text style={st.avatarText}>{initials}</Text>
-            </LinearGradient>
-            <Text style={st.userEmail} numberOfLines={1}>
-              {email.trim()}
-            </Text>
-            <Ionicons name="create-outline" size={18} color={C.muted} />
-          </Pressable>
-
-          <Field label="Senha" focusedDefault>
+          <Field label="Senha" icon="lock-closed-outline">
             <TextInput
               ref={passRef}
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(v) => {
+                setPassword(v);
+                setError(null);
+              }}
+              placeholder="Sua senha"
+              placeholderTextColor={C.dim}
               secureTextEntry={!show}
               autoCapitalize="none"
               autoCorrect={false}
               autoComplete="current-password"
               textContentType="password"
               returnKeyType="go"
-              onSubmitEditing={submitPassword}
+              onSubmitEditing={() => canSubmit && submitPassword()}
               style={st.input}
             />
             <Pressable hitSlop={10} onPress={() => setShow((v) => !v)} accessibilityLabel="Mostrar ou ocultar senha">
@@ -246,36 +234,47 @@ export default function Login() {
             </Pressable>
           </Field>
 
+          <Text style={[st.linkSmall, { alignSelf: 'flex-end', marginTop: 12 }]} onPress={() => openPage('/reset-password', 'Recuperar senha')}>
+            Esqueceu a senha?
+          </Text>
+
           <ErrorBanner message={error} />
 
-          <View style={st.keepRow}>
-            <Text style={st.keepText}>Permanecer conectado</Text>
-            <Switch value={keep} onValueChange={setKeep} trackColor={{ true: C.red }} />
-          </View>
+          <PillButton title="Entrar" icon="arrow-forward" onPress={submitPassword} loading={loading} disabled={!canSubmit} full />
 
-          <View style={[st.keepRow, { marginTop: 10 }]}>
-            <View style={{ flex: 1, marginRight: 12 }}>
-              <Text style={st.keepText}>Salvar e-mail e senha</Text>
-              <Text style={st.keepSub}>Fica guardado com segurança só neste aparelho</Text>
+          <View style={st.optCard}>
+            <View style={st.keepRow2}>
+              <Ionicons name="time-outline" size={20} color={C.muted} />
+              <Text style={st.keepText2}>Permanecer conectado</Text>
+              <Switch value={keep} onValueChange={setKeep} trackColor={{ true: C.red }} />
             </View>
-            <Switch
-              value={remember}
-              onValueChange={(v) => {
-                tap();
-                setRemember(v);
-                if (!v) {
-                  clearSaved();
-                  setHasSaved(false);
-                }
-              }}
-              trackColor={{ true: C.red }}
-            />
+            <View style={st.optLine} />
+            <View style={st.keepRow2}>
+              <Ionicons name="key-outline" size={20} color={C.muted} />
+              <View style={{ flex: 1 }}>
+                <Text style={st.keepText2}>Salvar e-mail e senha</Text>
+                <Text style={st.keepSub}>Guardado com segurança só neste aparelho</Text>
+              </View>
+              <Switch
+                value={remember}
+                onValueChange={(v) => {
+                  tap();
+                  setRemember(v);
+                  if (!v) {
+                    clearSaved();
+                    setHasSaved(false);
+                  }
+                }}
+                trackColor={{ true: C.red }}
+              />
+            </View>
           </View>
 
-          <PillButton title="Continuar" icon="arrow-forward" onPress={submitPassword} loading={loading} disabled={!password} full />
-
-          <Text style={[st.link, { marginTop: 24, textAlign: 'center' }]} onPress={() => Linking.openURL(`${WEB}/reset-password`)}>
-            Esqueceu a senha?
+          <Text style={[st.sub, { textAlign: 'center', marginTop: 24 }]}>
+            Ainda não tem conta?{' '}
+            <Text style={st.link} onPress={() => openPage('/sign-up', 'Criar conta')}>
+              Criar conta
+            </Text>
           </Text>
         </>
       )}
@@ -347,11 +346,14 @@ export default function Login() {
   );
 }
 
-function Field({ label, children, focusedDefault }: { label: string; children: React.ReactNode; focusedDefault?: boolean }) {
+function Field({ label, children, icon }: { label: string; children: React.ReactNode; icon?: keyof typeof Ionicons.glyphMap }) {
   return (
-    <View style={[st.field, focusedDefault && { borderColor: C.red }]}>
+    <View style={st.field}>
       <Text style={st.fieldLabel}>{label}</Text>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>{children}</View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        {icon ? <Ionicons name={icon} size={20} color={C.muted} /> : null}
+        {children}
+      </View>
     </View>
   );
 }
@@ -393,14 +395,22 @@ function PillButton({
 }
 
 const st = StyleSheet.create({
-  progress: { height: 3, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 2, marginTop: 4, marginBottom: 46, overflow: 'hidden' },
+  progress: { height: 3, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 2, marginTop: 4, marginBottom: 18, overflow: 'hidden' },
+  hero: { alignItems: 'center', marginBottom: 6 },
+  welcome: { color: C.text, fontSize: 34, fontWeight: '900', letterSpacing: -0.8, marginTop: 2 },
+  welcomeSub: { color: C.muted, fontSize: 15.5, marginTop: 6 },
+  linkSmall: { color: C.redLight, fontSize: 14.5, fontWeight: '700' },
+  optCard: { marginTop: 22, backgroundColor: '#121317', borderRadius: 16, borderWidth: 1, borderColor: C.border, paddingHorizontal: 14 },
+  optLine: { height: 1, backgroundColor: C.border },
+  keepRow2: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
+  keepText2: { flex: 1, color: C.text, fontSize: 15.5, fontWeight: '600' },
   progressFill: { height: 3, backgroundColor: C.red },
   logo: { width: 92, height: 85 },
   title: { color: C.text, fontSize: 38, fontWeight: '800', letterSpacing: -1, marginTop: 18 },
   sub: { color: C.muted, fontSize: 16, marginTop: 10, lineHeight: 22 },
   link: { color: C.redLight, fontSize: 16, fontWeight: '700' },
   field: {
-    marginTop: 30,
+    marginTop: 16,
     backgroundColor: '#15161A',
     borderRadius: 12,
     borderWidth: 1.5,

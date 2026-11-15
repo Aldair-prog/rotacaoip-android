@@ -40,5 +40,25 @@ testar() {
 
 testar connect br.com.connectmdcpay.app art/apk-connect/ConnectPay-emulador.apk
 testar stratton br.com.strattonpay.app art/apk-stratton/Stratton-emulador.apk
+
+echo "=== os dois apps instalados juntos ===" | tee -a "$OUT/resumo.txt"
+adb shell pm list packages | grep -E "connectmdcpay|strattonpay" | tee -a "$OUT/resumo.txt"
+
+pushtest() {
+  local NOME=$1 PKG=$2 SCHEME=$3
+  echo "=== push nativo $NOME ===" | tee -a "$OUT/resumo.txt"
+  adb logcat -c
+  adb shell am start -a android.intent.action.VIEW -d "$SCHEME://teste-push" "$PKG" >/dev/null 2>&1
+  sleep 14
+  adb exec-out screencap -p >"$OUT/$NOME-push.png"
+  adb shell pidof "$PKG" >/dev/null && echo "app aberto depois do push: OK" | tee -a "$OUT/resumo.txt" || echo "APP FECHOU NO PUSH" | tee -a "$OUT/resumo.txt"
+  adb shell dumpsys notification --noredact | grep -E "pkg=$PKG" | head -5 >>"$OUT/resumo.txt"
+  adb logcat -d | grep -E "AppPush|FATAL|AndroidRuntime" | head -30 >>"$OUT/resumo.txt"
+  adb shell cmd statusbar expand-notifications; sleep 2
+  adb exec-out screencap -p >"$OUT/$NOME-notificacoes.png"
+  adb shell cmd statusbar collapse
+}
+pushtest connect br.com.connectmdcpay.app connectpay
+pushtest stratton br.com.strattonpay.app strattonpay
 cat "$OUT/resumo.txt"
 exit 0

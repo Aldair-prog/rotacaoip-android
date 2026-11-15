@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import * as Crypto from 'expo-crypto';
@@ -111,7 +111,8 @@ export default function Enviar() {
   // Só verifica SE há texto copiado (não lê o conteúdo, então o iPhone não pergunta nada)
   useFocusEffect(
     useCallback(() => {
-      Clipboard.hasStringAsync().then(setHasCopied).catch(() => {});
+      // No Android isso mostra o aviso "colou da área de transferência": só no iPhone
+      if (Platform.OS === 'ios') Clipboard.hasStringAsync().then(setHasCopied).catch(() => {});
     }, [])
   );
 
