@@ -101,9 +101,7 @@ module.exports = {
         'expo-build-properties',
         {
           android: {
-            // exigência da Play Store desde 31/08/2026: mirar o Android 16 (API 36)
-            compileSdkVersion: 36,
-            targetSdkVersion: 36,
+            // o Expo 58 já mira a API mais nova do Android (acima da 36 exigida pela Play Store)
             usesCleartextTraffic: false,
             enableMinifyInReleaseBuilds: true,
             enableShrinkResourcesInReleaseBuilds: true,
