@@ -41,6 +41,8 @@ type Ctx = {
   signIn: (email: string, password: string, keep: boolean) => Promise<SignInResult>;
   verifyOtp: (code: string, otpToken: string, keep: boolean) => Promise<void>;
   signOut: () => Promise<void>;
+  /** Só para o teste automático: abre as telas internas sem conta (nenhum dado real é carregado) */
+  testSignIn: () => void;
   unlock: () => Promise<boolean>;
   confirmIdentity: (reason: string) => Promise<boolean>;
   setBiometricEnabled: (v: boolean) => Promise<void>;
@@ -270,6 +272,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       signIn,
       verifyOtp,
       signOut,
+      testSignIn: () => setStatus('signedIn'),
       unlock,
       confirmIdentity,
       setBiometricEnabled,

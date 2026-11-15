@@ -60,5 +60,22 @@ pushtest() {
 }
 pushtest connect br.com.connectmdcpay.app connectpay
 pushtest stratton br.com.strattonpay.app strattonpay
+
+abas() {
+  local NOME=$1 PKG=$2 SCHEME=$3
+  echo "=== telas internas $NOME ===" | tee -a "$OUT/resumo.txt"
+  adb shell am force-stop "$PKG"; adb logcat -c
+  adb shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
+  sleep 8
+  adb shell am start -a android.intent.action.VIEW -d "$SCHEME://teste-abas" "$PKG" >/dev/null 2>&1
+  sleep 10
+  adb exec-out screencap -p >"$OUT/$NOME-inicio.png"
+  # passa pelas abas (barra de baixo)
+  for x in 324 540 756 972 108; do adb shell input tap $x 2280; sleep 3; adb exec-out screencap -p >"$OUT/$NOME-aba-$x.png"; done
+  adb shell pidof "$PKG" >/dev/null && echo "telas internas: OK" | tee -a "$OUT/resumo.txt" || echo "APP FECHOU NAS TELAS" | tee -a "$OUT/resumo.txt"
+  adb logcat -d | grep -E "FATAL|AndroidRuntime|Caused by|ReactNativeJS" | head -40 >>"$OUT/resumo.txt"
+}
+abas connect br.com.connectmdcpay.app connectpay
+abas stratton br.com.strattonpay.app strattonpay
 cat "$OUT/resumo.txt"
 exit 0
