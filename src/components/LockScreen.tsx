@@ -8,6 +8,7 @@ import { useSession } from '../session';
 import { greeting } from '../lib/format';
 import { Button, Glow, failure } from './ui';
 import { A, LOGO, BIO_ICON } from '../brand';
+import { BrandLogo } from './Intro';
 
 /** Tela de entrada com Face ID. Aparece ao abrir o app quando a biometria está ligada. */
 export function LockScreen() {
@@ -32,11 +33,11 @@ export function LockScreen() {
   const who = company?.trade_name || company?.name || lastEmail;
 
   return (
-    <View style={[FILL, styles.wrap, { paddingTop: ins.top + 60, paddingBottom: ins.bottom + 24 }]}>
+    <View style={[FILL, styles.wrap, { paddingTop: ins.top + 30, paddingBottom: ins.bottom + 24 }]}>
       <Glow height={520} strength={0.3} />
 
       <View style={{ alignItems: 'center' }}>
-        <Image source={LOGO} style={styles.logo} contentFit="contain" />
+        <BrandLogo size={104} />
         <Text style={styles.hello}>{greeting()}</Text>
         {who ? (
           <Text style={styles.who} numberOfLines={1}>

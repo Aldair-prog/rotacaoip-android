@@ -12,6 +12,8 @@ testar() {
   adb install -r -g "$APK" >>"$OUT/resumo.txt" 2>&1 || { echo "FALHOU INSTALAR" | tee -a "$OUT/resumo.txt"; return; }
   adb logcat -c
   adb shell monkey -p "$PKG" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
+  sleep 1.2; adb exec-out screencap -p >"$OUT/$NOME-abertura1.png"
+  sleep 0.8; adb exec-out screencap -p >"$OUT/$NOME-abertura2.png"
   for t in 6 14 25; do
     sleep $([ $t = 6 ] && echo 6 || echo 9)
     adb exec-out screencap -p >"$OUT/$NOME-${t}s.png"

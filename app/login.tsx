@@ -10,6 +10,7 @@ import { useSession } from '../src/session';
 import { ApiError } from '../src/lib/api';
 import { C } from '../src/theme';
 import { BRAND, LOGO, PANEL_URL } from '../src/brand';
+import { BrandLogo } from '../src/components/Intro';
 
 const WEB = PANEL_URL;
 type Step = 'email' | 'password' | 'otp';
@@ -174,7 +175,10 @@ export default function Login() {
         <View style={[st.progressFill, { width: step === 'email' ? '33%' : step === 'password' ? '66%' : '100%' }]} />
       </View>
 
-      <Image source={LOGO} style={st.logo} contentFit="contain" />
+      {/* logo com aura e anéis girando (o espaço extra dos anéis é compensado na margem) */}
+      <View style={{ marginLeft: -21, marginTop: -14, marginBottom: -14, alignSelf: 'flex-start' }}>
+        <BrandLogo size={78} />
+      </View>
 
       {step === 'email' && (
         <>
