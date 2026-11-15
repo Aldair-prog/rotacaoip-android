@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, View, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { WebView } from 'react-native-webview';
 import { Image } from 'expo-image';
@@ -140,7 +140,9 @@ export default function Admin() {
         overScrollMode="never"
         contentInsetAdjustmentBehavior="never"
         automaticallyAdjustContentInsets={false}
-        {...({ allowsLinkPreview: false, dataDetectorTypes: 'none', textInteractionEnabled: true } as any)}
+        {...((Platform.OS === 'ios'
+          ? { allowsLinkPreview: false, dataDetectorTypes: ['none'], textInteractionEnabled: true }
+          : {}) as any)}
         setSupportMultipleWindows={false}
         onLoadProgress={(e: any) => setProgress(e.nativeEvent.progress)}
         onShouldStartLoadWithRequest={(req: any) => {

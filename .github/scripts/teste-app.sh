@@ -73,6 +73,16 @@ abas() {
   # passa pelas abas (barra de baixo)
   for x in 324 540 756 972 108; do adb shell input tap $x 2280; sleep 3; adb exec-out screencap -p >"$OUT/$NOME-aba-$x.png"; done
   adb shell pidof "$PKG" >/dev/null && echo "telas internas: OK" | tee -a "$OUT/resumo.txt" || echo "APP FECHOU NAS TELAS" | tee -a "$OUT/resumo.txt"
+  # Painel Admin (WebView) e telas de documento
+  adb shell am start -a android.intent.action.VIEW -d "$SCHEME://admin" "$PKG" >/dev/null 2>&1
+  sleep 12
+  adb exec-out screencap -p >"$OUT/$NOME-admin.png"
+  adb shell pidof "$PKG" >/dev/null && echo "painel admin: OK" | tee -a "$OUT/resumo.txt" || echo "APP FECHOU NO PAINEL ADMIN" | tee -a "$OUT/resumo.txt"
+  adb shell input keyevent KEYCODE_BACK; sleep 2
+  adb shell am start -a android.intent.action.VIEW -d "$SCHEME://documento?url=https%3A%2F%2Fexemplo-falso.com&title=Teste" "$PKG" >/dev/null 2>&1
+  sleep 5
+  adb exec-out screencap -p >"$OUT/$NOME-link-falso.png"
+  adb shell pidof "$PKG" >/dev/null && echo "link falso bloqueado sem fechar: OK" | tee -a "$OUT/resumo.txt" || echo "APP FECHOU NO LINK" | tee -a "$OUT/resumo.txt"
   adb logcat -d | grep -E "FATAL|AndroidRuntime|Caused by|ReactNativeJS" | head -40 >>"$OUT/resumo.txt"
 }
 abas connect br.com.connectmdcpay.app connectpay

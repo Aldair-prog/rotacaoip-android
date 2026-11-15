@@ -1,5 +1,8 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
+  Animated,
+  Easing,
   ActivityIndicator,
   Pressable,
   RefreshControl,
@@ -68,6 +71,18 @@ export function Screen({
 }) {
   const ins = useSafeAreaInsets();
   const r = useRefresh(onRefresh);
+  // Entrada da tela: aparece subindo de leve toda vez que a aba é aberta
+  const enter = useRef(new Animated.Value(0)).current;
+  useFocusEffect(
+    useCallback(() => {
+      enter.setValue(0);
+      Animated.timing(enter, { toValue: 1, duration: 340, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+    }, [enter])
+  );
+  const enterStyle = {
+    opacity: enter,
+    transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
+  };
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       {glow && <Glow />}
@@ -82,7 +97,7 @@ export function Screen({
         contentContainerStyle={{ paddingTop: 10, paddingBottom: ins.bottom + bottomPad, paddingHorizontal: 20 }}
         refreshControl={onRefresh ? <RefreshControl tintColor={C.red} refreshing={r.refreshing} onRefresh={r.run} /> : undefined}
       >
-        {children}
+        <Animated.View style={enterStyle}>{children}</Animated.View>
       </ScrollView>
     </View>
   );

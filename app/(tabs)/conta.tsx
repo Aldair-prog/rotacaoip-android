@@ -13,6 +13,7 @@ import { notificationsEnabled, sendTestNotification, setNotificationsEnabled } f
 import { BRAND, A, LOGO, SETTINGS_PATH, DEVICE, BIO_ICON } from '../../src/brand';
 import { BackgroundRow } from '../../src/components/BackgroundRow';
 import { openDoc } from '../../src/lib/docs';
+import { BrandLogo } from '../../src/components/Intro';
 
 
 export default function Conta() {
@@ -71,8 +72,8 @@ export default function Conta() {
       <Header title="Conta" />
 
       <Card style={st.profile}>
-        <View style={st.avatar}>
-          <Image source={LOGO} style={{ width: 40, height: 37 }} contentFit="contain" />
+        <View style={{ marginVertical: -8 }}>
+          <BrandLogo size={58} />
         </View>
         <Text style={st.name} numberOfLines={2}>
           {company?.trade_name || company?.name || 'Sua empresa'}

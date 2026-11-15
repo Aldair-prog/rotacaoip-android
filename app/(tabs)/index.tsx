@@ -25,6 +25,7 @@ import { displayKey } from '../../src/lib/pix';
 import { useSession } from '../../src/session';
 import { C } from '../../src/theme';
 import { BRAND, A, LOGO } from '../../src/brand';
+import { BrandLogo } from '../../src/components/Intro';
 
 type Item = { kind: 'in'; t: Transaction; date: string } | { kind: 'out'; w: Withdraw; date: string };
 
@@ -86,7 +87,9 @@ export default function Home() {
           hitSlop={10}
           accessibilityLabel={isAdmin ? 'Abrir Painel Admin' : undefined}
         >
-          <Image source={LOGO} style={{ width: 40, height: 37 }} contentFit="contain" />
+          <View style={{ margin: -12 }}>
+            <BrandLogo size={40} rings={false} />
+          </View>
         </Pressable>
         <View style={{ flex: 1, marginLeft: 12 }}>
           <Text style={st.hello}>{greeting()},</Text>
