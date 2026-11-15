@@ -27,7 +27,7 @@ jobs:
         with:
           node-version: "22"
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
@@ -37,12 +37,10 @@ jobs:
       - name: Instalar dependências
         run: |
           npm install --no-audit --no-fund
-          npx expo install expo-notifications expo-print expo-sharing expo-build-properties expo-modules-core
           npx expo install --fix || true
           mkdir -p saida && cp package.json saida/package-resolvido.json
 
       - name: Conferir o código (TypeScript)
-        continue-on-error: true
         run: npx tsc --noEmit 2>&1 | tee saida/typescript.txt
 
       - name: Gerar projeto Android

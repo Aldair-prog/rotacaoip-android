@@ -10,6 +10,9 @@ import { adoptRefreshToken, getDevice, getSession, setPanelOpen } from '../src/l
 import { useSession } from '../src/session';
 import { BRAND, LOGO } from '../src/brand';
 
+// Algumas opções são só do iPhone e não estão nos tipos do pacote
+const WebViewAny = WebView as any;
+
 const HOST = BRAND.host;
 const ADMIN_URL = `https://${HOST}/admin/dashboard`;
 const PANEL_BG = '#0E1015'; // fundo do painel, pra não aparecer "borda" de navegador
@@ -112,13 +115,13 @@ export default function Admin() {
     <View style={{ flex: 1, backgroundColor: PANEL_BG, paddingTop: ins.top }}>
       {progress < 1 ? <View style={[st.progress, { top: ins.top, width: `${Math.max(progress, 0.08) * 100}%` }]} /> : null}
 
-      <WebView
+      <WebViewAny
         ref={web}
         source={{ uri: ADMIN_URL }}
         style={{ flex: 1, backgroundColor: PANEL_BG }}
         containerStyle={{ backgroundColor: PANEL_BG }}
         injectedJavaScriptBeforeContentLoaded={injected}
-        onMessage={(e) => {
+        onMessage={(e: any) => {
           try {
             const m = JSON.parse(e.nativeEvent.data);
             if (m?.type === 'refreshToken' && typeof m.value === 'string') adoptRefreshToken(m.value);
@@ -137,12 +140,10 @@ export default function Admin() {
         overScrollMode="never"
         contentInsetAdjustmentBehavior="never"
         automaticallyAdjustContentInsets={false}
-        allowsLinkPreview={false}
-        dataDetectorTypes="none"
-        textInteractionEnabled
+        {...({ allowsLinkPreview: false, dataDetectorTypes: 'none', textInteractionEnabled: true } as any)}
         setSupportMultipleWindows={false}
-        onLoadProgress={(e) => setProgress(e.nativeEvent.progress)}
-        onShouldStartLoadWithRequest={(req) => {
+        onLoadProgress={(e: any) => setProgress(e.nativeEvent.progress)}
+        onShouldStartLoadWithRequest={(req: any) => {
           // Fica no painel; links externos (WhatsApp, PDFs de outros sites) abrem fora
           if (req.url.startsWith('about:') || req.url.startsWith('blob:') || req.url.includes(HOST)) return true;
           Linking.openURL(req.url).catch(() => {});

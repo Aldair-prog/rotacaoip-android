@@ -60,8 +60,8 @@ export default function Login() {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const passRef = useRef<TextInput>(null);
-  const codeRef = useRef<TextInput>(null);
+  const passRef = useRef<any>(null);
+  const codeRef = useRef<any>(null);
 
   const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 

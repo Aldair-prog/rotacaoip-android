@@ -282,13 +282,13 @@ export default function Extrato() {
           </View>
         }
         ListEmptyComponent={
-          loading ? null : (
+          loading ? undefined : (
             <Card style={{ marginTop: 16 }}>
               <Empty icon="swap-vertical" title="Nada por aqui ainda" text="Quando houver movimentações, elas aparecem aqui." />
             </Card>
           )
         }
-        ListFooterComponent={more ? <ActivityIndicator color={C.red} style={{ marginVertical: 20 }} /> : null}
+        ListFooterComponent={more ? <ActivityIndicator color={C.red} style={{ marginVertical: 20 }} /> : undefined}
         renderItem={({ item }) => {
           if ('header' in item)
             return (
