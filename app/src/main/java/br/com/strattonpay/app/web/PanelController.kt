@@ -6,6 +6,7 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Build
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
 import android.webkit.URLUtil
@@ -126,6 +127,15 @@ class PanelController(
             mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
             userAgentString = "$userAgentString ${BuildConfig.BRAND_NAME.replace(" ", "")}App/${BuildConfig.VERSION_NAME}"
         }
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
+            androidx.webkit.WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, false)
+        }
+        @Suppress("DEPRECATION")
+        if (Build.VERSION.SDK_INT >= 29 && WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
+            androidx.webkit.WebSettingsCompat.setForceDark(settings, androidx.webkit.WebSettingsCompat.FORCE_DARK_OFF)
+        }
+        if (Build.VERSION.SDK_INT >= 29) isForceDarkAllowed = false
+        settings.offscreenPreRaster = true
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
         addJavascriptInterface(Bridge(), "StrattonBridge")
@@ -261,7 +271,35 @@ class PanelController(
         }
     }
 
+    /** Últimos erros/avisos do painel (para o diagnóstico). */
+    val consoleLog = java.util.ArrayDeque<String>()
+
+    /** Junta informações da página atual para entender um problema de exibição. */
+    fun collectDiagnostics(onResult: (String) -> Unit) {
+        val header = buildString {
+            appendLine("${BuildConfig.BRAND_NAME} ${BuildConfig.VERSION_NAME} · Android ${Build.VERSION.RELEASE} (${Build.MANUFACTURER} ${Build.MODEL})")
+            appendLine("WebView: ${webView.settings.userAgentString}")
+            appendLine("textZoom: ${webView.settings.textZoom} · fontScale: ${activity.resources.configuration.fontScale}")
+            appendLine("view: ${webView.width}x${webView.height} px · density ${activity.resources.displayMetrics.density}")
+        }
+        webView.evaluateJavascript(DIAG_SCRIPT) { json ->
+            val log = synchronized(consoleLog) { consoleLog.joinToString("\n") }
+            onResult(header + "\n--- página ---\n" + (json ?: "null") + "\n--- console ---\n" + log)
+        }
+    }
+
     private inner class Chrome : WebChromeClient() {
+        override fun onConsoleMessage(message: android.webkit.ConsoleMessage): Boolean {
+            val level = message.messageLevel()
+            if (level == android.webkit.ConsoleMessage.MessageLevel.ERROR || level == android.webkit.ConsoleMessage.MessageLevel.WARNING) {
+                synchronized(consoleLog) {
+                    consoleLog.addLast("[$level] ${message.message()} (${message.sourceId()?.substringAfterLast('/')}:${message.lineNumber()})")
+                    while (consoleLog.size > 60) consoleLog.removeFirst()
+                }
+            }
+            return false
+        }
+
         override fun onProgressChanged(view: WebView, newProgress: Int) {
             progress = newProgress
         }
@@ -702,7 +740,7 @@ private val NATIVE_PUSH_SCRIPT = """
       var url = typeof input === 'string' || input instanceof URL ? String(input) : (input && input.url);
       var method = init && init.method ? init.method : (input && input.method);
       var ep = isSubPost(url, method) ? endpointOf(init && init.body) : '';
-      return Promise.resolve(f0.apply(this, arguments)).then(function(r){ if (ep && r && r.ok) { try { AppPush.confirm(ep); } catch(e){} } return r; });
+      return Promise.resolve(f0.apply(window, arguments)).then(function(r){ if (ep && r && r.ok) { try { AppPush.confirm(ep); } catch(e){} } return r; });
     };
   }
   var open0 = XMLHttpRequest.prototype.open, send0 = XMLHttpRequest.prototype.send;
@@ -713,4 +751,29 @@ private val NATIVE_PUSH_SCRIPT = """
     return send0.apply(this, arguments);
   };
 })();
+""".trimIndent()
+
+
+/** Coleta tamanho da tela e os elementos sobrepostos (menus, gavetas, janelas) da página atual. */
+private val DIAG_SCRIPT = """
+(function(){
+  function info(el){
+    var r = el.getBoundingClientRect(), cs = getComputedStyle(el);
+    return { tag: el.tagName.toLowerCase(), id: el.id || undefined,
+      cls: String(el.className && el.className.baseVal !== undefined ? el.className.baseVal : el.className || '').slice(0, 140),
+      role: el.getAttribute('role') || undefined, state: el.getAttribute('data-state') || undefined,
+      rect: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)],
+      pos: cs.position, z: cs.zIndex, h: cs.height, maxH: cs.maxHeight, ov: cs.overflowY,
+      op: cs.opacity, vis: cs.visibility, tf: cs.transform !== 'none' ? cs.transform : undefined,
+      kids: el.children.length, textLen: (el.innerText || '').length };
+  }
+  var overlays = Array.prototype.filter.call(document.querySelectorAll('body *'), function(el){
+    var cs = getComputedStyle(el);
+    return (cs.position === 'fixed' || cs.position === 'sticky' || el.getAttribute('role') === 'dialog' || el.getAttribute('data-state') === 'open') && el.offsetParent !== undefined;
+  }).slice(0, 40).map(info);
+  return JSON.stringify({ url: location.pathname, inner: [innerWidth, innerHeight],
+    visual: window.visualViewport ? [visualViewport.width, visualViewport.height, visualViewport.scale] : null,
+    vh100: (function(){ var d = document.createElement('div'); d.style.height = '100vh'; document.body.appendChild(d); var h = d.getBoundingClientRect().height; d.style.height = '100dvh'; var h2 = d.getBoundingClientRect().height; d.remove(); return [h, h2]; })(),
+    dpr: devicePixelRatio, overlays: overlays });
+})()
 """.trimIndent()

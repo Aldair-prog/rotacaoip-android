@@ -669,6 +669,26 @@ fun SettingsScreen(store: CredentialStore, panel: PanelController, onBack: () ->
                     }
                 }
 
+                // ---------- Diagnóstico ----------
+                OutlinedButton(
+                    onClick = {
+                        panel.collectDiagnostics { report ->
+                            val send = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_SUBJECT, "Diagnóstico ${BuildConfig.BRAND_NAME}")
+                                putExtra(Intent.EXTRA_TEXT, report)
+                            }
+                            context.startActivity(Intent.createChooser(send, "Enviar diagnóstico").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Enviar diagnóstico do painel") }
+                Text(
+                    "Gera um relatório técnico da última tela aberta do painel (sem senha nem dados da conta) para o suporte.",
+                    color = Muted,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+
                 Text(
                     "© ${java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)} ${BuildConfig.COPYRIGHT_HOLDER}\n" +
                         "Todos os direitos reservados · versão ${BuildConfig.VERSION_NAME}",
