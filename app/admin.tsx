@@ -133,17 +133,20 @@ export default function Admin() {
         sharedCookiesEnabled
         domStorageEnabled
         javaScriptEnabled
-        bounces
-        pullToRefreshEnabled
-        refreshControlLightMode
-        decelerationRate="normal"
-        overScrollMode="never"
-        contentInsetAdjustmentBehavior="never"
-        automaticallyAdjustContentInsets={false}
+        // Opções que só existem no iPhone ficam separadas: no Android elas derrubavam o app
         {...((Platform.OS === 'ios'
-          ? { allowsLinkPreview: false, dataDetectorTypes: ['none'], textInteractionEnabled: true }
-          : {}) as any)}
-        setSupportMultipleWindows={false}
+          ? {
+              bounces: true,
+              pullToRefreshEnabled: true,
+              refreshControlLightMode: true,
+              decelerationRate: 'normal',
+              contentInsetAdjustmentBehavior: 'never',
+              automaticallyAdjustContentInsets: false,
+              allowsLinkPreview: false,
+              dataDetectorTypes: ['none'],
+              textInteractionEnabled: true,
+            }
+          : { overScrollMode: 'never', setSupportMultipleWindows: false }) as any)}
         onLoadProgress={(e: any) => setProgress(e.nativeEvent.progress)}
         onShouldStartLoadWithRequest={(req: any) => {
           // Fica no painel; outros sites abrem dentro do app; WhatsApp, telefone e e-mail abrem no app certo
