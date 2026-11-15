@@ -91,6 +91,17 @@ module.exports = {
           android: {
             enableMinifyInReleaseBuilds: true,
             enableShrinkResourcesInReleaseBuilds: true,
+            // regras para o otimizador não apagar o que o push nativo usa (WorkManager/Room e o cofre criptografado)
+            extraProguardRules: [
+              '-keep class androidx.work.** { *; }',
+              '-keep class * extends androidx.room.RoomDatabase { <init>(); }',
+              '-keep class androidx.room.** { *; }',
+              '-keep class expo.modules.apppush.** { *; }',
+              '-keep class com.google.crypto.tink.** { *; }',
+              '-keep class androidx.security.crypto.** { *; }',
+              '-dontwarn com.google.errorprone.annotations.**',
+              '-dontwarn javax.annotation.**',
+            ].join('\n'),
           },
         },
       ],
