@@ -1,0 +1,44 @@
+{
+  "name": "pay-apps",
+  "version": "2.0.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "start:stratton": "APP_BRAND=stratton expo start",
+    "android:connect": "APP_BRAND=connect expo prebuild -p android --clean",
+    "android:stratton": "APP_BRAND=stratton expo prebuild -p android --clean",
+    "build:ios:connect": "eas build -p ios --profile connect",
+    "build:ios:stratton": "eas build -p ios --profile stratton",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "^15.0.2",
+    "@react-navigation/native": "^7.1.8",
+    "expo": "^58.0.23",
+    "expo-blur": "~58.0.5",
+    "expo-camera": "~58.0.14",
+    "expo-clipboard": "~58.0.4",
+    "expo-constants": "~58.0.15",
+    "expo-crypto": "~58.0.7",
+    "expo-haptics": "~58.0.7",
+    "expo-image": "~58.0.18",
+    "expo-linear-gradient": "~58.0.3",
+    "expo-linking": "~58.0.16",
+    "expo-local-authentication": "~58.0.2",
+    "expo-router": "~58.0.30",
+    "expo-secure-store": "~58.0.2",
+    "expo-splash-screen": "~58.0.13",
+    "expo-status-bar": "~58.0.4",
+    "react": "19.3.0",
+    "react-native": "0.88.1",
+    "react-native-safe-area-context": "~5.11.1",
+    "react-native-screens": "~4.30.1",
+    "react-native-webview": "14.0.1"
+  },
+  "devDependencies": {
+    "@types/react": "~19.3.0",
+    "typescript": "~6.0.3"
+  },
+  "description": "STRATTON e Connect Pay: um código só para Android e iPhone"
+}

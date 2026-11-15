@@ -1,5 +1,7 @@
 name: Stratton - Gerar APK
 
+# Um código só (Expo) gera os apps STRATTON e Connect Pay.
+# Aqui saem os APKs Android; o iPhone sai pelo EAS (ver GUIA.md).
 on:
   push:
     branches: [stratton-app]
@@ -9,12 +11,21 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  android:
     runs-on: ubuntu-latest
-    outputs:
-      signed: ${{ steps.key.outputs.signed }}
+    strategy:
+      fail-fast: false
+      matrix:
+        brand: [stratton, connect]
+    env:
+      APP_BRAND: ${{ matrix.brand }}
+      BUILD_NUMBER: ${{ github.run_number }}
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
 
       - uses: actions/setup-java@v4
         with:
@@ -23,56 +34,73 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Preparar chave de assinatura
+      - name: Instalar dependências
+        run: |
+          npm install --no-audit --no-fund
+          npx expo install expo-notifications expo-print expo-sharing expo-build-properties expo-modules-core
+          mkdir -p saida && cp package.json saida/package-resolvido.json
+
+      - name: Conferir o código (TypeScript)
+        continue-on-error: true
+        run: npx tsc --noEmit 2>&1 | tee saida/typescript.txt
+
+      - name: Gerar projeto Android
+        run: npx expo prebuild -p android --no-install --clean
+
+      - name: Compilar APK (celulares)
+        run: |
+          cd android
+          ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,armeabi-v7a --no-daemon --stacktrace
+          cp app/build/outputs/apk/release/app-release.apk ../saida/app-celular.apk
+
+      - name: Compilar APK de teste (emulador)
+        run: |
+          cd android
+          ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
+          cp app/build/outputs/apk/release/app-release.apk ../saida/app-emulador.apk
+
+      - name: Assinar com a chave fixa
         id: key
         env:
           STRATTON_KEYSTORE: ${{ secrets.STRATTON_KEYSTORE }}
-        run: |
-          if [ -n "$STRATTON_KEYSTORE" ]; then
-            echo "$STRATTON_KEYSTORE" | base64 -d > "$RUNNER_TEMP/stratton.keystore"
-            echo "STRATTON_KEYSTORE_PATH=$RUNNER_TEMP/stratton.keystore" >> "$GITHUB_ENV"
-            echo "signed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::warning::Sem o segredo STRATTON_KEYSTORE: compila e testa, mas não publica o APK."
-            echo "signed=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Compilar (versão leve + versão de teste)
-        env:
           STRATTON_KEY_PASSWORD: ${{ secrets.STRATTON_KEY_PASSWORD }}
         run: |
-          chmod +x gradlew
-          ./gradlew testStrattonDebugUnitTest assembleStrattonRelease assembleConnectRelease assembleStrattonDebug assembleConnectDebug lintStrattonDebug --no-daemon --stacktrace
-          mkdir -p saida
-          cp app/build/outputs/apk/stratton/release/app-stratton-release.apk saida/Stratton.apk
-          cp app/build/outputs/apk/connect/release/app-connect-release.apk saida/ConnectPay.apk
-          cp app/build/outputs/apk/stratton/debug/app-stratton-debug.apk saida/Stratton-teste.apk
-          cp app/build/outputs/apk/connect/debug/app-connect-debug.apk saida/ConnectPay-teste.apk
-          cp app/build/reports/lint-results-strattonDebug.txt saida/lint.txt 2>/dev/null || true
+          NAME=$([ "$APP_BRAND" = stratton ] && echo Stratton || echo ConnectPay)
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          if [ -n "$STRATTON_KEYSTORE" ]; then
+            echo "$STRATTON_KEYSTORE" | base64 -d > "$RUNNER_TEMP/k.keystore"
+            for f in app-celular app-emulador; do
+              "$BT/apksigner" sign --ks "$RUNNER_TEMP/k.keystore" --ks-key-alias stratton \
+                --ks-pass env:STRATTON_KEY_PASSWORD --key-pass env:STRATTON_KEY_PASSWORD saida/$f.apk
+            done
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Sem o segredo STRATTON_KEYSTORE: APK temporário."
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+          fi
+          "$BT/apksigner" verify --print-certs saida/app-celular.apk | head -3
+          mv saida/app-celular.apk "saida/$NAME.apk"
+          mv saida/app-emulador.apk "saida/$NAME-emulador.apk"
           ls -la saida
 
       - uses: actions/upload-artifact@v4
         with:
-          name: stratton-apk
+          name: apk-${{ matrix.brand }}
           path: saida/
 
-      - name: Publicar para download (temporário, sem a chave fixa)
-        if: steps.key.outputs.signed != 'true'
-        uses: softprops/action-gh-release@v2
+  publicar:
+    needs: android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
         with:
-          tag_name: stratton-build-${{ github.run_number }}
-          name: Stratton + Connect Pay (build ${{ github.run_number }}, temporário)
-          target_commitish: ${{ github.sha }}
-          prerelease: true
-          make_latest: false
-          body: APK temporário (sem a chave fixa). Para instalar, desinstale a versão anterior.
-          files: |
-            saida/Stratton.apk
-            saida/ConnectPay.apk
-
-      - name: Publicar para download
-        if: steps.key.outputs.signed == 'true'
-        uses: softprops/action-gh-release@v2
+          path: art
+      - name: Juntar
+        run: |
+          mkdir -p saida
+          cp art/apk-stratton/Stratton.apk art/apk-connect/ConnectPay.apk saida/
+          ls -la saida
+      - uses: softprops/action-gh-release@v2
         with:
           tag_name: stratton-build-${{ github.run_number }}
           name: Stratton + Connect Pay (build ${{ github.run_number }})
@@ -85,52 +113,38 @@ jobs:
             saida/ConnectPay.apk
 
   teste:
-    needs: build
+    needs: android
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/download-artifact@v4
         with:
-          name: stratton-apk
-          path: saida
-
+          path: art
       - name: Ativar KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-
-      - run: pip install websocket-client cryptography
-
-      - name: Rodar o app num celular Android virtual
+      - name: Testar no emulador
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
-          target: google_apis
           arch: x86_64
+          target: google_apis
           profile: pixel_6
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          script: bash .github/scripts/teste-celular.sh br.com.strattonpay.app saida/Stratton-teste.apk testes/stratton && bash .github/scripts/teste-celular.sh br.com.connectmdcpay.app saida/ConnectPay-teste.apk testes/connect
-
-      - name: Empacotar resultados
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash .github/scripts/teste-app.sh
+      - name: Publicar resultados
         if: always()
         run: |
-          mkdir -p testes
-          tar czf testes/resultados.tgz -C testes $(ls testes | grep -v tgz) 2>/dev/null || true
-
-      - name: Publicar resultado dos testes
+          tar czf resultados.tgz resultados || true
+      - uses: softprops/action-gh-release@v2
         if: always()
-        uses: softprops/action-gh-release@v2
         with:
           tag_name: stratton-testes
-          name: Stratton - testes automáticos
-          target_commitish: ${{ github.sha }}
+          name: Testes no emulador (último build)
           prerelease: true
           make_latest: false
-          body: Prints e relatórios do último teste automático do app (build ${{ github.run_number }}).
-          files: |
-            testes/*.tgz
-            saida/lint.txt
+          files: resultados.tgz

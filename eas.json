@@ -1,0 +1,47 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "connect": {
+      "autoIncrement": true,
+      "env": {
+        "APP_BRAND": "connect"
+      },
+      "ios": {
+        "resourceClass": "m-medium"
+      }
+    },
+    "stratton": {
+      "autoIncrement": true,
+      "env": {
+        "APP_BRAND": "stratton"
+      },
+      "ios": {
+        "resourceClass": "m-medium"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "APP_BRAND": "connect"
+      },
+      "ios": {
+        "resourceClass": "m-medium"
+      }
+    }
+  },
+  "submit": {
+    "connect": {
+      "ios": {
+        "ascAppId": "COLOQUE_AQUI_O_APPLE_ID_DO_APP_CONNECT"
+      }
+    },
+    "stratton": {
+      "ios": {
+        "ascAppId": "COLOQUE_AQUI_O_APPLE_ID_DO_APP_STRATTON"
+      }
+    }
+  }
+}
