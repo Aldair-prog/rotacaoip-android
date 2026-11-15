@@ -172,7 +172,7 @@ export default function Conta() {
           title="Suporte no WhatsApp"
           subtitle={`Fale com a equipe ${BRAND.name}`}
           right={<Ionicons name="chevron-forward" size={18} color={C.dim} />}
-          onPress={() => Linking.openURL(wa ?? BRAND.contact)}
+          onPress={() => Linking.openURL(BRAND.support ?? wa ?? BRAND.contact)}
         />
         <Row icon="information-circle" title="Versão do app" right={<Text style={st.fee}>{Constants.expoConfig?.version ?? '1.0.0'}</Text>} last />
       </Card>

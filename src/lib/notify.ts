@@ -22,6 +22,8 @@ const PUSH_KEY = 'cp_push_endpoint';
 const RELAY = BRAND.id === 'connect' ? 'https://connect-push.squareweb.app' : null;
 // Android: o próprio app recebe o push do painel (módulo nativo, sem Firebase)
 const ANDROID = Platform.OS === 'android' && !!AppPush;
+// No Expo Go (teste) o som próprio não existe: usa o som padrão do celular
+const SOUND = Constants.executionEnvironment === 'storeClient' ? 'default' : BRAND.sound;
 if (AppPush) {
   try {
     AppPush.configure(BRAND.name, BRAND.accent, BRAND.sound.replace(/\.[a-z0-9]+$/i, ''), (Constants.expoConfig as any)?.scheme ?? '');
@@ -131,7 +133,7 @@ export async function sendTestNotification() {
     return;
   }
   await Notifications.scheduleNotificationAsync({
-    content: { title: BRAND.name, body: 'Notificações ativadas. Você será avisado de cada Pix.', sound: BRAND.sound },
+    content: { title: BRAND.name, body: 'Notificações ativadas. Você será avisado de cada Pix.', sound: SOUND },
     trigger: null,
   });
 }
@@ -145,7 +147,7 @@ async function show(n: AppNotification) {
     content: {
       title: n.title || BRAND.name,
       body: n.message || '',
-      sound: BRAND.sound,
+      sound: SOUND,
       data: { id: n.id, category: n.category },
     },
     trigger: null,

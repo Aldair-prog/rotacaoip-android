@@ -13,6 +13,8 @@ type Brand = {
   host: string;
   site: string;
   contact: string;
+  /** WhatsApp do suporte fixo da marca (tem prioridade sobre o número do painel) */
+  support: string | null;
   slogan: string;
   copyright: string;
   sound: string;
@@ -39,6 +41,7 @@ const BRANDS: Record<BrandId, Brand> = {
     host: 'app.connectmdcpay.com.br',
     site: 'https://www.connectmdcpay.com.br',
     contact: 'https://www.connectmdcpay.com.br/#contato',
+    support: null,
     slogan: 'Connect Pay · Pagamentos sem limites',
     copyright: 'OPERAÇÕES DIGITAIS - CONNECT PAY',
     sound: 'connect_notificacao.wav',
@@ -58,6 +61,7 @@ const BRANDS: Record<BrandId, Brand> = {
     host: 'app.strattonpay.com.br',
     site: 'https://www.strattonpay.com.br',
     contact: 'https://www.strattonpay.com.br',
+    support: 'https://wa.me/5584986624831',
     slogan: 'STRATTON · Pagamentos sem limites',
     copyright: 'OPERAÇÕES DIGITAIS - STRATTON',
     sound: 'stratton_notificacao.wav',
