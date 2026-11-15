@@ -28,6 +28,7 @@ import { useSession } from '../../src/session';
 import { forgetKey, loadRecentKeys, RecentKey, rememberKey } from '../../src/lib/recentKeys';
 import { C } from '../../src/theme';
 import { A } from '../../src/brand';
+import { BIO_ICON } from '../../src/brand';
 
 type Step = 0 | 1 | 2;
 
@@ -428,7 +429,7 @@ export default function Enviar() {
 
       <ErrorBanner message={error} />
 
-      <Button title={`Enviar com ${biometricLabel}`} icon="scan" onPress={send} loading={sending} style={{ marginTop: 8 }} />
+      <Button title={`Enviar com ${biometricLabel}`} icon={BIO_ICON} onPress={send} loading={sending} style={{ marginTop: 8 }} />
       <Button title="Cancelar" variant="plain" onPress={reset} style={{ marginTop: 4 }} />
     </Screen>
   );

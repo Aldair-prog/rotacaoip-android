@@ -10,7 +10,7 @@ import { api, fileUrl, TenantSettings } from '../../src/lib/api';
 import { useSession } from '../../src/session';
 import { C } from '../../src/theme';
 import { notificationsEnabled, sendTestNotification, setNotificationsEnabled } from '../../src/lib/notify';
-import { BRAND, A, LOGO, SETTINGS_PATH, DEVICE } from '../../src/brand';
+import { BRAND, A, LOGO, SETTINGS_PATH, DEVICE, BIO_ICON } from '../../src/brand';
 import { BackgroundRow } from '../../src/components/BackgroundRow';
 
 
@@ -93,7 +93,7 @@ export default function Conta() {
       <SectionTitle title="Segurança" />
       <Card style={{ paddingVertical: 4 }}>
         <Row
-          icon="scan"
+          icon={BIO_ICON}
           iconColor={C.redLight}
           iconBg={C.redSoft}
           title={`Entrar com ${biometricLabel}`}

@@ -87,3 +87,6 @@ export const LOGO_RATIO = BRAND_ID === 'stratton' ? 360 / 370 : 512 / 469;
 export const SETTINGS_PATH =
   Platform.OS === 'ios' ? `Ajustes do iPhone → ${BRAND.name}` : `Configurações → Apps → ${BRAND.name}`;
 export const DEVICE = Platform.OS === 'ios' ? 'iPhone' : 'celular';
+
+/** Ícone da biometria: Face ID no iPhone, digital no Android */
+export const BIO_ICON = (Platform.OS === 'ios' ? 'scan' : 'finger-print') as 'scan' | 'finger-print';

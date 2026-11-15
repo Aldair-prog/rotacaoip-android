@@ -7,7 +7,7 @@ import { C, FILL } from '../theme';
 import { useSession } from '../session';
 import { greeting } from '../lib/format';
 import { Button, Glow, failure } from './ui';
-import { A, LOGO } from '../brand';
+import { A, LOGO, BIO_ICON } from '../brand';
 
 /** Tela de entrada com Face ID. Aparece ao abrir o app quando a biometria está ligada. */
 export function LockScreen() {
@@ -47,13 +47,13 @@ export function LockScreen() {
 
       <Pressable onPress={tryUnlock} style={styles.faceBtn} accessibilityLabel={`Entrar com ${biometricLabel}`}>
         <View style={styles.faceRing}>
-          <Ionicons name="scan-outline" size={54} color={C.text} />
+          <Ionicons name={BIO_ICON === 'scan' ? 'scan-outline' : 'finger-print-outline'} size={54} color={C.text} />
         </View>
         <Text style={styles.faceText}>{failed ? 'Toque para tentar de novo' : `Entrar com ${biometricLabel}`}</Text>
       </Pressable>
 
       <View style={{ width: '100%', paddingHorizontal: 24, gap: 6 }}>
-        <Button title={`Entrar com ${biometricLabel}`} icon="scan" onPress={tryUnlock} />
+        <Button title={`Entrar com ${biometricLabel}`} icon={BIO_ICON} onPress={tryUnlock} />
         <Button title="Entrar com e-mail e senha" variant="plain" onPress={signOut} />
       </View>
     </View>

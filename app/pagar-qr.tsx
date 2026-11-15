@@ -12,7 +12,7 @@ import { brl } from '../src/lib/format';
 import { isBrCode, parseBrCode } from '../src/lib/pix';
 import { useSession } from '../src/session';
 import { C, FILL } from '../src/theme';
-import { SETTINGS_PATH } from '../src/brand';
+import { SETTINGS_PATH, BIO_ICON } from '../src/brand';
 
 // Mensagem clara quando o pagamento por QR estiver desativado no painel admin
 function unavailableMsg(e: ApiError) {
@@ -174,7 +174,7 @@ export default function PagarQr() {
 
         <Button
           title={`Pagar com ${biometricLabel}`}
-          icon="scan"
+          icon={BIO_ICON}
           onPress={pay}
           loading={sending}
           disabled={value < 1 || (available !== null && total > available)}
