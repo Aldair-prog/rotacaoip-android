@@ -443,7 +443,9 @@ export default function Extrato() {
         }}
       />
 
-      <Modal visible={sheet} transparent animationType="slide" onRequestClose={() => !busy && setSheet(false)} statusBarTranslucent>
+      <Modal visible={sheet} transparent animationType="slide" onRequestClose={() => {
+          if (!busy) setSheet(false);
+        }} statusBarTranslucent>
         <Pressable style={xs.backdrop} onPress={() => !busy && setSheet(false)} />
         <View style={[xs.sheet, { paddingBottom: ins.bottom + 18 }]}>
           <View style={xs.grab} />
