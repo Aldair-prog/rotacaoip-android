@@ -26,15 +26,16 @@ import { useSession } from '../../src/session';
 import { C } from '../../src/theme';
 import { BRAND, A, LOGO } from '../../src/brand';
 import { BrandLogo } from '../../src/components/Intro';
+import { screenCache } from '../../src/lib/cache';
 
 type Item = { kind: 'in'; t: Transaction; date: string } | { kind: 'out'; w: Withdraw; date: string };
 
 export default function Home() {
   const { company, hideValues, setHideValues, refreshCompany, isAdmin } = useSession();
-  const [balance, setBalance] = useState<Balance | null>(null);
-  const [items, setItems] = useState<Item[] | null>(null);
+  const [balance, setBalance] = useState<Balance | null>((screenCache.get('home.balance') as Balance) ?? null);
+  const [items, setItems] = useState<Item[] | null>((screenCache.get('home.items') as Item[]) ?? null);
   const [error, setError] = useState<string | null>(null);
-  const [today, setToday] = useState<DaySummary | null>(null);
+  const [today, setToday] = useState<DaySummary | null>((screenCache.get('home.today') as DaySummary) ?? null);
   const [unread, setUnread] = useState(0);
 
   const lastToday = useRef(0);
@@ -49,12 +50,15 @@ export default function Home() {
     // O resumo do dia percorre o extrato inteiro de hoje: só refaz a cada 30 s (ou quando puxa pra atualizar)
     if (force || Date.now() - lastToday.current > 30000) {
       lastToday.current = Date.now();
-      api.today().then(setToday).catch(() => {});
+      api.today().then((t) => { screenCache.set('home.today', t); setToday(t); }).catch(() => {});
     }
     Promise.all([api.notifications(20).catch(() => []), api.announcements().catch(() => [])]).then(([a, b2]) =>
       setUnread([...a, ...b2].filter((n) => !n.read_at).length)
     );
-    if (b.status === 'fulfilled') setBalance(b.value);
+    if (b.status === 'fulfilled') {
+      screenCache.set('home.balance', b.value);
+      setBalance(b.value);
+    }
     const list: Item[] = [];
     // Cobranças recusadas/canceladas são só tentativas: não poluem a tela inicial (seguem no Extrato)
     if (tx.status === 'fulfilled')
@@ -63,7 +67,9 @@ export default function Home() {
         .forEach((t) => list.push({ kind: 'in', t, date: txDate(t) }));
     if (wd.status === 'fulfilled') wd.value.items.forEach((w) => list.push({ kind: 'out', w, date: txDate(w) }));
     list.sort((a, b2) => (a.date < b2.date ? 1 : -1));
-    setItems(list.slice(0, 8));
+    const top = list.slice(0, 8);
+    if (tx.status === 'fulfilled' || wd.status === 'fulfilled') screenCache.set('home.items', top);
+    setItems(top);
     const firstErr = [b, tx, wd].find((r) => r.status === 'rejected') as PromiseRejectedResult | undefined;
     if (firstErr) setError(firstErr.reason instanceof ApiError ? firstErr.reason.message : 'Não foi possível atualizar.');
   }, []);

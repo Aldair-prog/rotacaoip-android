@@ -165,7 +165,23 @@ async function refresh(): Promise<boolean> {
   return refreshing;
 }
 
-async function req<T>(
+// Consultas iguais feitas ao mesmo tempo (ex.: duas telas pedindo o saldo) viram uma só ida ao servidor
+const inflight = new Map<string, Promise<unknown>>();
+
+function req<T>(
+  path: string,
+  opts: { method?: 'GET' | 'POST' | 'DELETE'; body?: unknown; query?: Query; idempotencyKey?: string; retried?: boolean } = {}
+): Promise<T> {
+  if ((opts.method ?? 'GET') !== 'GET' || opts.retried) return send<T>(path, opts);
+  const key = `${session?.accessToken?.slice(-12) ?? ''}|${path}${qs(opts.query)}`;
+  const hit = inflight.get(key);
+  if (hit) return hit as Promise<T>;
+  const p = send<T>(path, opts).finally(() => inflight.delete(key));
+  inflight.set(key, p);
+  return p;
+}
+
+async function send<T>(
   path: string,
   opts: { method?: 'GET' | 'POST' | 'DELETE'; body?: unknown; query?: Query; idempotencyKey?: string; retried?: boolean } = {}
 ): Promise<T> {

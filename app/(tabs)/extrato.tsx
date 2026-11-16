@@ -16,6 +16,7 @@ import { detectKeyType, displayKey } from '../../src/lib/pix';
 import { C } from '../../src/theme';
 import { BRAND, A, LOGO, BRAND_ID } from '../../src/brand';
 import { CONNECT_LOGO_B64, STRATTON_LOGO_B64 } from '../../src/logoData';
+import { screenCache } from '../../src/lib/cache';
 
 // Mesmo extrato do painel (Recebimentos): /statement/@me/movements
 type Tab = 'all' | 'in' | 'out';
@@ -60,7 +61,7 @@ function titleOf(m: Movement) {
 export default function Extrato() {
   const ins = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>('all');
-  const [items, setItems] = useState<Movement[]>([]);
+  const [items, setItems] = useState<Movement[]>(() => (screenCache.get('extrato.all') as Movement[]) ?? []);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [more, setMore] = useState(false);
@@ -90,7 +91,10 @@ export default function Extrato() {
         if (id !== reqId.current) return;
         acc = acc.concat(p.items);
         setItems(acc);
-        if (i === 0) setLoading(false);
+        if (i === 0) {
+          setLoading(false);
+          screenCache.set(`extrato.${tab}`, p.items);
+        }
         after = p.nextCursor;
         const oldest = p.items[p.items.length - 1];
         if (!after || (limit && oldest && new Date(oldest.occurred_at).getTime() < limit)) {
@@ -133,8 +137,9 @@ export default function Extrato() {
   const r = useRefresh(loadAll);
 
   useEffect(() => {
-    setLoading(true);
-    setItems([]);
+    const cached = screenCache.get(`extrato.${tab}`) as Movement[] | undefined;
+    setLoading(!cached);
+    setItems(cached ?? []);
     setCursor(null);
     loadAll();
   }, [loadAll]);
@@ -500,7 +505,7 @@ export default function Extrato() {
   );
 }
 
-function MovementRow({ m }: { m: Movement }) {
+const MovementRow = React.memo(function MovementRow({ m }: { m: Movement }) {
   const isOut = m.kind === 'WITHDRAW' || m.net_amount < 0;
   const value = Math.abs(m.net_amount ?? m.gross_amount ?? 0);
   const time = timeLabel(m.occurred_at);
@@ -554,7 +559,7 @@ function MovementRow({ m }: { m: Movement }) {
       onPress={m.transaction_id ? () => router.push(`/cobranca/${m.transaction_id}`) : undefined}
     />
   );
-}
+});
 
 const xs = StyleSheet.create({
   search: {

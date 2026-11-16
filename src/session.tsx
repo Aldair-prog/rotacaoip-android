@@ -7,6 +7,7 @@ import { api, auth, Company, getSession, onAuthChange, Session, setDevice, setSe
 import { BRAND } from './brand';
 import { unregisterPush } from './lib/notify';
 import { E2E } from './e2e';
+import { screenCache } from './lib/cache';
 
 const K = {
   refresh: 'cp_refresh_token',
@@ -187,6 +188,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const finish = useCallback(async (s: Session, keep: boolean) => {
     keepRef.current = keep;
+    screenCache.clear();
     setSession(s);
     if (keep && s.refreshToken) await SecureStore.setItemAsync(K.refresh, s.refreshToken, secureOpts);
     else await SecureStore.deleteItemAsync(K.refresh);
@@ -218,6 +220,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   );
 
   const signOut = useCallback(async () => {
+    screenCache.clear();
     // tira este aparelho da lista de push da conta antes de sair
     await unregisterPush().catch(() => {});
     await Promise.all([SecureStore.deleteItemAsync(K.refresh), SecureStore.deleteItemAsync(K.bio)]);
