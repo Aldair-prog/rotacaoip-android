@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
@@ -37,7 +37,8 @@ export default function Home() {
   const [today, setToday] = useState<DaySummary | null>(null);
   const [unread, setUnread] = useState(0);
 
-  const load = useCallback(async () => {
+  const lastToday = useRef(0);
+  const load = useCallback(async (force = false) => {
     setError(null);
     const [b, tx, wd] = await Promise.allSettled([
       api.balance(),
@@ -45,7 +46,11 @@ export default function Home() {
       api.withdraws({ perPage: 8 }),
     ]);
     // Resumo do dia e avisos não lidos (não bloqueiam a tela se falharem)
-    api.today().then(setToday).catch(() => {});
+    // O resumo do dia percorre o extrato inteiro de hoje: só refaz a cada 30 s (ou quando puxa pra atualizar)
+    if (force || Date.now() - lastToday.current > 30000) {
+      lastToday.current = Date.now();
+      api.today().then(setToday).catch(() => {});
+    }
     Promise.all([api.notifications(20).catch(() => []), api.announcements().catch(() => [])]).then(([a, b2]) =>
       setUnread([...a, ...b2].filter((n) => !n.read_at).length)
     );
@@ -69,7 +74,7 @@ export default function Home() {
     }, [load])
   );
 
-  const onRefresh = () => Promise.all([load(), refreshCompany()]);
+  const onRefresh = () => Promise.all([load(true), refreshCompany()]);
 
   const names = [company?.trade_name, company?.name].filter(Boolean) as string[];
   const name = names.sort((a, b) => a.length - b.length)[0] ?? '';
