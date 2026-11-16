@@ -23,6 +23,7 @@ import { brl } from '../lib/format';
 import { useSession } from '../session';
 import type { TxStatus, WithdrawStatus } from '../lib/api';
 import { A } from '../brand';
+import { E2E } from '../e2e';
 
 export type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -49,6 +50,7 @@ export function useRefresh(onRefresh?: () => unknown) {
     if (!onRefresh) return;
     setRefreshing(true);
     impact();
+    if (E2E) console.log('PULL_REFRESH');
     try {
       // Tempo mínimo pra dar pra ver que recarregou
       await Promise.all([onRefresh(), new Promise((ok) => setTimeout(ok, 600))]);

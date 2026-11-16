@@ -73,6 +73,15 @@ abas() {
   # passa pelas abas (barra de baixo)
   for x in 324 540 756 972 108; do adb shell input tap $x 2280; sleep 3; adb exec-out screencap -p >"$OUT/$NOME-aba-$x.png"; done
   adb shell pidof "$PKG" >/dev/null && echo "telas internas: OK" | tee -a "$OUT/resumo.txt" || echo "APP FECHOU NAS TELAS" | tee -a "$OUT/resumo.txt"
+  # Puxar para atualizar em cada aba: arrasta pra baixo devagar e confere se recarregou
+  for x in 108 324 540 972; do
+    adb shell input tap $x 2280; sleep 3
+    adb logcat -c
+    adb shell input swipe 540 650 540 1700 900
+    sleep 0.3; adb exec-out screencap -p >"$OUT/$NOME-puxar-$x.png"
+    sleep 2
+    if adb logcat -d | grep -q PULL_REFRESH; then echo "puxar pra atualizar aba $x: OK" | tee -a "$OUT/resumo.txt"; else echo "PUXAR NÃO ATUALIZOU aba $x" | tee -a "$OUT/resumo.txt"; fi
+  done
   # Painel Admin (WebView) e telas de documento
   adb shell am start -a android.intent.action.VIEW -d "$SCHEME://admin" "$PKG" >/dev/null 2>&1
   sleep 12
