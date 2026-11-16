@@ -48,12 +48,26 @@ jobs:
       - name: Gerar projeto Android
         run: npx expo prebuild -p android --no-install --clean
 
+      - name: Garantir o som das notificações
+        run: |
+          SOM="brands/$APP_BRAND/${APP_BRAND}_dinheiro.wav"
+          RAW=android/app/src/main/res/raw
+          mkdir -p $RAW
+          cp "$SOM" $RAW/
+          # o otimizador apagava o som (o app só pede ele pelo nome): manter sempre
+          printf '<?xml version="1.0" encoding="utf-8"?>\n<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@raw/%s_dinheiro" />\n' "$APP_BRAND" > $RAW/som_keep.xml
+          ls -la $RAW
+
       - name: Compilar APK (celulares 64 bits, mais leve)
         run: |
           echo "export const E2E = false;" > src/e2e.ts
           cd android
           ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon --stacktrace
           cp app/build/outputs/apk/release/app-release.apk ../saida/app-celular.apk
+          # confere se o som entrou no APK (procura um arquivo do mesmo tamanho)
+          T=$(stat -c %s "../brands/$APP_BRAND/${APP_BRAND}_dinheiro.wav")
+          unzip -lv ../saida/app-celular.apk | awk -v t=$T '$1==t {f=1} END {exit !f}' || { echo "SOM NÃO ENTROU NO APK"; exit 1; }
+          echo "som no APK: OK"
 
       - name: Compilar APK de teste (emulador)
         run: |
