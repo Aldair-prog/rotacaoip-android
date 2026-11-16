@@ -9,7 +9,7 @@ import * as Sharing from 'expo-sharing';
 import { useSession } from '../../src/session';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Card, Empty, ErrorBanner, Glow, Header, IconButton, IconName, Money, Row, Segmented, tap, useRefresh, wdStatus } from '../../src/components/ui';
+import { Card, Empty, ErrorBanner, Glow, Header, IconButton, IconName, Money, Row, Segmented, tap, useRefresh, wdStatus, RefreshPill } from '../../src/components/ui';
 import { api, ApiError, Movement, MovementKind } from '../../src/lib/api';
 import { brl, dayLabel, maskDoc, timeLabel } from '../../src/lib/format';
 import { detectKeyType, displayKey } from '../../src/lib/pix';
@@ -337,7 +337,7 @@ export default function Extrato() {
         contentContainerStyle={{ paddingTop: 10, paddingBottom: ins.bottom + 120, paddingHorizontal: 20 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl tintColor={C.red} colors={[C.red]} progressBackgroundColor="#1A1B20" refreshing={r.refreshing} onRefresh={r.run} />
+          <RefreshControl tintColor={C.red} colors={[C.red]} progressBackgroundColor="#2C2D35" size="large" refreshing={r.refreshing} onRefresh={r.run} />
         }
         initialNumToRender={14}
         maxToRenderPerBatch={20}
@@ -442,6 +442,8 @@ export default function Extrato() {
           return <MovementRow m={item.m} />;
         }}
       />
+
+      <RefreshPill stamp={r.stamp} top={ins.top + 8} />
 
       <Modal visible={sheet} transparent animationType="slide" onRequestClose={() => {
           if (!busy) setSheet(false);

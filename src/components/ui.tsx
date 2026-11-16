@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import {
   Animated,
@@ -46,6 +46,7 @@ export function Glow({ height = 380, strength = 0.26 }: { height?: number; stren
 /** Puxar pra atualizar no padrão da Apple, guardando o estado de "atualizando" */
 export function useRefresh(onRefresh?: () => unknown) {
   const [refreshing, setRefreshing] = useState(false);
+  const [stamp, setStamp] = useState(0);
   const run = useCallback(async () => {
     if (!onRefresh) return;
     setRefreshing(true);
@@ -56,9 +57,37 @@ export function useRefresh(onRefresh?: () => unknown) {
       await Promise.all([onRefresh(), new Promise((ok) => setTimeout(ok, 600))]);
     } finally {
       setRefreshing(false);
+      setStamp((n) => n + 1);
+      success();
     }
   }, [onRefresh]);
-  return { refreshing, run };
+  return { refreshing, run, stamp };
+}
+
+/** Selo "Atualizado" que desce no topo depois de puxar pra atualizar */
+export function RefreshPill({ stamp, top }: { stamp: number; top: number }) {
+  const a = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!stamp) return;
+    a.setValue(0);
+    Animated.sequence([
+      Animated.spring(a, { toValue: 1, useNativeDriver: true, speed: 16, bounciness: 9 }),
+      Animated.delay(1100),
+      Animated.timing(a, { toValue: 0, duration: 260, useNativeDriver: true }),
+    ]).start();
+  }, [stamp, a]);
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        s.pill,
+        { top, opacity: a, transform: [{ translateY: a.interpolate({ inputRange: [0, 1], outputRange: [-30, 0] }) }, { scale: a.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }) }] },
+      ]}
+    >
+      <Ionicons name="checkmark-circle" size={17} color={C.green} />
+      <Text style={s.pillText}>Atualizado agora</Text>
+    </Animated.View>
+  );
 }
 
 export function Screen({
@@ -83,6 +112,12 @@ export function Screen({
       Animated.timing(enter, { toValue: 1, duration: 340, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
     }, [enter])
   );
+  // Depois de puxar pra atualizar, a tela "renasce": entra de novo com o conteúdo novo
+  useEffect(() => {
+    if (!r.stamp) return;
+    enter.setValue(0.2);
+    Animated.timing(enter, { toValue: 1, duration: 420, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [r.stamp, enter]);
   const enterStyle = {
     opacity: enter,
     transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
@@ -101,12 +136,13 @@ export function Screen({
         contentContainerStyle={{ paddingTop: 10, paddingBottom: ins.bottom + bottomPad, paddingHorizontal: 20 }}
         refreshControl={
           onRefresh ? (
-            <RefreshControl tintColor={C.red} colors={[C.red]} progressBackgroundColor="#1A1B20" refreshing={r.refreshing} onRefresh={r.run} />
+            <RefreshControl tintColor={C.red} colors={[C.red]} progressBackgroundColor="#2C2D35" size="large" refreshing={r.refreshing} onRefresh={r.run} />
           ) : undefined
         }
       >
         <Animated.View style={enterStyle}>{children}</Animated.View>
       </ScrollView>
+      <RefreshPill stamp={r.stamp} top={ins.top + 8} />
     </View>
   );
 }
@@ -437,6 +473,25 @@ export function KV({ k, v, color, bold, last }: { k: string; v: string; color?: 
 }
 
 export const s = StyleSheet.create({
+  pill: {
+    position: 'absolute',
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#1E1F25',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.14)',
+    shadowColor: '#000',
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+  pillText: { color: C.text, fontSize: 13.5, fontWeight: '700' },
   h1: { color: C.text, fontSize: 32, fontWeight: '800', letterSpacing: -0.6 },
   subtitle: { color: C.muted, fontSize: 15, marginTop: 4 },
   card: {
