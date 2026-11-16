@@ -87,8 +87,8 @@ export default function Home() {
           hitSlop={10}
           accessibilityLabel={isAdmin ? 'Abrir Painel Admin' : undefined}
         >
-          <View style={{ margin: -16 }}>
-            <BrandLogo size={52} />
+          <View style={{ marginHorizontal: -6, marginVertical: -12 }}>
+            <BrandLogo size={44} />
           </View>
         </Pressable>
         <View style={{ flex: 1, marginLeft: 12 }}>
