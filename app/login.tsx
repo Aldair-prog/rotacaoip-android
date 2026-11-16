@@ -57,7 +57,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
   const [keep, setKeep] = useState(true);
-  const [remember, setRemember] = useState(false);
+  const [remember, setRemember] = useState(true);
   const [hasSaved, setHasSaved] = useState(false);
   const [otpToken, setOtpToken] = useState<string | null>(null);
   const [code, setCode] = useState('');

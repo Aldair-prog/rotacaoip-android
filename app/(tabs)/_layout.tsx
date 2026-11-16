@@ -1,6 +1,7 @@
 import React from 'react';
 import { NativeTabs } from 'expo-router/native-tabs';
 import { C } from '../../src/theme';
+import { LOGO } from '../../src/brand';
 
 // Barra de abas nativa do iOS (efeito de vidro "Liquid Glass" no iOS 26)
 export default function TabsLayout() {
@@ -23,7 +24,7 @@ export default function TabsLayout() {
         <NativeTabs.Trigger.Label>Enviar</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="conta">
-        <NativeTabs.Trigger.Icon sf={{ default: 'person.crop.circle', selected: 'person.crop.circle.fill' }} md="account_circle" />
+        <NativeTabs.Trigger.Icon src={LOGO} {...({ renderingMode: 'original' } as any)} />
         <NativeTabs.Trigger.Label>Conta</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
     </NativeTabs>
