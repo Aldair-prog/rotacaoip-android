@@ -35,6 +35,8 @@ export function onAuthChange(cb: (s: Session | null) => void) {
   onSessionChange = cb;
 }
 
+let movementsMax = 100;
+
 export class ApiError extends Error {
   status: number;
   code?: string;
@@ -433,8 +435,8 @@ export const api = {
     start.setHours(0, 0, 0, 0);
     const out: DaySummary = { incoming: 0, outgoing: 0, sales: 0, fees: 0 };
     let cursor: string | null = null;
-    for (let i = 0; i < 5; i++) {
-      const pg: { items: Movement[]; nextCursor: string | null } = await api.movements({ cursor, perPage: 50 });
+    for (let i = 0; i < 60; i++) {
+      const pg: { items: Movement[]; nextCursor: string | null } = await api.movements({ cursor, perPage: 100 });
       let older = false;
       for (const m of pg.items) {
         if (new Date(m.occurred_at) < start) {
@@ -516,7 +518,16 @@ export const api = {
 
   /** Extrato do painel: tudo que entrou e saiu (vendas, saques, estornos...) */
   movements: async (q: { cursor?: string | null; perPage?: number; kind?: string } = {}) => {
-    const r = await req<any>('/statement/@me/movements', { query: { perPage: q.perPage ?? 20, cursor: q.cursor, kind: q.kind || undefined } });
+    // Páginas grandes deixam o extrato completo bem mais rápido; se o servidor não aceitar o tamanho, usa o menor
+    const want = Math.min(q.perPage ?? 20, movementsMax);
+    let r: any;
+    try {
+      r = await req<any>('/statement/@me/movements', { query: { perPage: want, cursor: q.cursor, kind: q.kind || undefined } });
+    } catch (e) {
+      if (!(e instanceof ApiError) || (e.status !== 400 && e.status !== 422) || want <= 25) throw e;
+      movementsMax = 25;
+      r = await req<any>('/statement/@me/movements', { query: { perPage: 25, cursor: q.cursor, kind: q.kind || undefined } });
+    }
     const items: Movement[] = r?.data ?? r?.items ?? r?.movements ?? [];
     const next = r?.next_cursor ?? r?.nextCursor ?? r?.pagination?.next_cursor ?? r?.pagination?.nextCursor ?? r?.meta?.nextCursor ?? null;
     const hasMore = r?.has_more ?? r?.hasMore ?? r?.pagination?.has_more ?? !!next;

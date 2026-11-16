@@ -167,7 +167,7 @@ export function Intro({ done, onFinish }: { done: boolean; onFinish: () => void 
       }, 65);
     }, 750);
     const dot = setInterval(() => setDots((d) => (d + 1) % 4), 380);
-    const t = setTimeout(() => setMinTime(true), 2300);
+    const t = setTimeout(() => setMinTime(true), 2000);
     return () => {
       l.stop();
       clearTimeout(startType);

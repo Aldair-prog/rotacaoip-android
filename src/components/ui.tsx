@@ -48,8 +48,10 @@ export function useRefresh(onRefresh?: () => unknown) {
   const run = useCallback(async () => {
     if (!onRefresh) return;
     setRefreshing(true);
+    impact();
     try {
-      await onRefresh();
+      // Tempo mínimo pra dar pra ver que recarregou
+      await Promise.all([onRefresh(), new Promise((ok) => setTimeout(ok, 600))]);
     } finally {
       setRefreshing(false);
     }
@@ -95,7 +97,11 @@ export function Screen({
         automaticallyAdjustKeyboardInsets
         style={{ marginTop: ins.top }}
         contentContainerStyle={{ paddingTop: 10, paddingBottom: ins.bottom + bottomPad, paddingHorizontal: 20 }}
-        refreshControl={onRefresh ? <RefreshControl tintColor={C.red} refreshing={r.refreshing} onRefresh={r.run} /> : undefined}
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl tintColor={C.red} colors={[C.red]} progressBackgroundColor="#1A1B20" refreshing={r.refreshing} onRefresh={r.run} />
+          ) : undefined
+        }
       >
         <Animated.View style={enterStyle}>{children}</Animated.View>
       </ScrollView>

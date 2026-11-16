@@ -11,7 +11,7 @@ const BRANDS = {
     id: 'br.com.connectmdcpay.app',
     color: '#F4212E',
     iconBg: '#000000',
-    sound: 'connect_notificacao.wav',
+    sound: 'connect_dinheiro.wav',
     web: 'https://connectmdcpay.com.br',
     eas: { projectId: '1eca7bc8-52b0-440c-b06e-e9a2488be504', owner: 'ctdf5645c5s4434533gtyicdfx' },
   },
@@ -22,7 +22,7 @@ const BRANDS = {
     id: 'br.com.strattonpay.app',
     color: '#8B3DFF',
     iconBg: '#FFFFFF',
-    sound: 'stratton_notificacao.wav',
+    sound: 'stratton_dinheiro.wav',
     web: 'https://strattonpay.com.br',
     eas: null, // projeto Expo da Stratton ainda não criado (só precisa para o iPhone)
   },

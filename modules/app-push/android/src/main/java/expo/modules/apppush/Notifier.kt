@@ -117,6 +117,21 @@ object Notifier {
         }
     }
 
+    /**
+     * Tira o valor do texto (ele já aparece grande) sem deixar frase quebrada:
+     * "Seu saque de R$ 10 foi enviado" -> "Seu saque foi enviado";
+     * "Você recebeu uma transferência de R$ 10." -> some (o título já diz isso).
+     */
+    fun cleanBody(body: String, amount: String): String {
+        var t = body.replace(Regex("\\s*(?:\\b(?:no valor de|no valor|de|do|da)\\s+)?" + Regex.escape(amount), RegexOption.IGNORE_CASE), "")
+        t = t.replace(Regex("\\s+(de|do|da)\\s*([.!]|$)", RegexOption.IGNORE_CASE), "$2")
+            .replace(Regex("\\s+([.,!])"), "$1")
+            .replace(Regex("\\s{2,}"), " ")
+            .trim(' ', '-', '·', ':', '|')
+        if (Regex("^voc[eê] recebeu uma transfer[eê]ncia\\.?$", RegexOption.IGNORE_CASE).matches(t)) return ""
+        return t
+    }
+
     @SuppressLint("MissingPermission")
     fun show(context: Context, title: String, body: String, id: String?) {
         if (!canNotify(context)) {
@@ -145,14 +160,15 @@ object Notifier {
         val amount = MONEY.find(title)?.value ?: MONEY.find(body)?.value
         if (amount != null) {
             val label = title.replace(amount, "").trim(' ', '-', '·', ':', '|').ifBlank { "Pix recebido" }
-            val rest = body.replace(amount, "").trim(' ', '-', '·', ':', '|')
-                .replace(Regex("^(de|do|da)\\s+", RegexOption.IGNORE_CASE), "De ")
+            val rest = cleanBody(body, amount)
             val view = RemoteViews(context.packageName, R.layout.notification_pix).apply {
                 setTextViewText(R.id.n_label, label)
                 setTextViewText(R.id.n_amount, "R$ " + amount.substringAfter("R$").trim())
                 setTextColor(R.id.n_amount, cfg.color)
                 setTextViewText(R.id.n_body, rest)
+                setViewVisibility(R.id.n_body, if (rest.isBlank()) android.view.View.GONE else android.view.View.VISIBLE)
             }
+            builder.setContentText(if (rest.isBlank()) label else rest)
             builder
                 .setStyle(NotificationCompat.DecoratedCustomViewStyle())
                 .setCustomContentView(view)

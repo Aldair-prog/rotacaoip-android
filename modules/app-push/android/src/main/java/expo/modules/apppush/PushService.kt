@@ -190,18 +190,22 @@ class PushService : Service() {
     }
 
     private fun ongoingNotification() = run {
-        getSystemService(NotificationManager::class.java)?.createNotificationChannel(
-            NotificationChannel(CH_CONNECTION, "Conexão de notificações", NotificationManager.IMPORTANCE_MIN).apply {
-                description = "Aviso fixo exigido pelo Android para receber as notificações na hora"
-                setShowBadge(false)
-            },
-        )
+        getSystemService(NotificationManager::class.java)?.let { nm ->
+            // Canal antigo (aparecia "conectado"): apaga. O novo fica oculto, a conexão continua funcionando.
+            try { nm.deleteNotificationChannel("connection") } catch (_: Exception) {}
+            nm.createNotificationChannel(
+                NotificationChannel(CH_CONNECTION, "Conexão em segundo plano", NotificationManager.IMPORTANCE_NONE).apply {
+                    description = "Mantém os avisos chegando na hora. Fica oculto."
+                    setShowBadge(false)
+                },
+            )
+        }
         val cfg = PushConfig(this)
         NotificationCompat.Builder(this, CH_CONNECTION)
             .setSmallIcon(Notifier.smallIcon(this))
             .setColor(cfg.color)
-            .setContentTitle("${cfg.brandName} conectado")
-            .setContentText("Pronto para receber os avisos do painel.")
+            .setContentTitle(cfg.brandName)
+            .setContentText("Avisos ativos")
             .setOngoing(true)
             .setSilent(true)
             .setPriority(NotificationCompat.PRIORITY_MIN)
@@ -211,7 +215,7 @@ class PushService : Service() {
 
     companion object {
         private const val ONGOING_ID = 4242
-        private const val CH_CONNECTION = "connection"
+        private const val CH_CONNECTION = "connection_silent"
         private const val CATCH_UP = "push_catch_up"
 
         /** Liga a recepção (conexão contínua + busca a cada 15 min como plano B). */
